@@ -3,31 +3,89 @@
 <head>
   <meta charset="UTF-8">
   <title>사칙연산 계산기</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+    }
+    .calculator {
+      width: 260px;
+      margin: 50px auto;
+    }
+    #display {
+      width: 100%;
+      height: 50px;
+      font-size: 2em;
+      text-align: right;
+      padding: 5px;
+      box-sizing: border-box;
+      margin-bottom: 10px;
+    }
+    .buttons {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .buttons button {
+      width: 100%;
+      height: 40px;
+      font-size: 1.2em;
+    }
+    .buttons td {
+      padding: 2px;
+    }
+  </style>
 </head>
 <body>
-  <h1>사칙연산 계산기</h1>
-  <input type="number" id="num1" placeholder="첫 번째 숫자">
-  <select id="operator">
-    <option value="+">+</option>
-    <option value="-">-</option>
-    <option value="*">*</option>
-    <option value="/">/</option>
-  </select>
-  <input type="number" id="num2" placeholder="두 번째 숫자">
-  <button id="calcBtn">계산</button>
-  <p>결과: <span id="result"></span></p>
-
+  <div class="calculator">
+    <input type="text" id="display" readonly>
+    <table class="buttons">
+      <tr>
+        <td><button class="calc-btn" data-value="C">C</button></td>
+        <td></td>
+        <td></td>
+        <td><button class="calc-btn" data-value="/">/</button></td>
+      </tr>
+      <tr>
+        <td><button class="calc-btn" data-value="7">7</button></td>
+        <td><button class="calc-btn" data-value="8">8</button></td>
+        <td><button class="calc-btn" data-value="9">9</button></td>
+        <td><button class="calc-btn" data-value="*">*</button></td>
+      </tr>
+      <tr>
+        <td><button class="calc-btn" data-value="4">4</button></td>
+        <td><button class="calc-btn" data-value="5">5</button></td>
+        <td><button class="calc-btn" data-value="6">6</button></td>
+        <td><button class="calc-btn" data-value="-">-</button></td>
+      </tr>
+      <tr>
+        <td><button class="calc-btn" data-value="1">1</button></td>
+        <td><button class="calc-btn" data-value="2">2</button></td>
+        <td><button class="calc-btn" data-value="3">3</button></td>
+        <td><button class="calc-btn" data-value="+">+</button></td>
+      </tr>
+      <tr>
+        <td colspan="2"><button class="calc-btn" data-value="0">0</button></td>
+        <td><button class="calc-btn" data-value=".">.</button></td>
+        <td><button class="calc-btn" data-value="=">=</button></td>
+      </tr>
+    </table>
+  </div>
   <script>
-    document.getElementById('calcBtn').addEventListener('click', function() {
-      const n1 = parseFloat(document.getElementById('num1').value);
-      const n2 = parseFloat(document.getElementById('num2').value);
-      const op = document.getElementById('operator').value;
-      let res;
-      if (op === '+') res = n1 + n2;
-      else if (op === '-') res = n1 - n2;
-      else if (op === '*') res = n1 * n2;
-      else if (op === '/') res = n2 !== 0 ? n1 / n2 : 'NaN';
-      document.getElementById('result').textContent = res;
+    const display = document.getElementById('display');
+    document.querySelectorAll('.calc-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const val = btn.dataset.value;
+        if (val === 'C') {
+          display.value = '';
+        } else if (val === '=') {
+          try {
+            display.value = eval(display.value);
+          } catch (e) {
+            display.value = 'Error';
+          }
+        } else {
+          display.value += val;
+        }
+      });
     });
   </script>
 </body>
