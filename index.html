@@ -50,7 +50,7 @@
       <input id="prompt" type="text" placeholder="예: 망치를 든 악당" />
       <button id="generate">Generate</button>
     </div>
-    <canvas id="result" width="32" height="32"></canvas>
+      <canvas id="result" width="32" height="32"></canvas>
     <div id="log"></div>
   </div>
 
@@ -74,6 +74,7 @@
     document.getElementById('generate').addEventListener('click', async () => {
       const userText = document.getElementById('prompt').value.trim();
       if (!userText) return;
+
       log.textContent = '생성 중...';
       const prompt = `8-bit pixel art, size 32x32, transparent background, vivid 8-color palette. ${userText}`;
       try {
@@ -91,6 +92,7 @@
           log.textContent = '완료';
         };
         img.src = dataUrl;
+
       } catch (err) {
         console.error(err);
         log.textContent = '오류 발생';
