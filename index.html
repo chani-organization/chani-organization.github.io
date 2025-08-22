@@ -50,24 +50,22 @@
       <input id="prompt" type="text" placeholder="예: 망치를 든 악당" />
       <button id="generate">Generate</button>
     </div>
-    <img id="result" alt="generated pixel art" />
+      <canvas id="result" width="32" height="32"></canvas>
     <div id="log"></div>
   </div>
 
   <script type="module">
-    import { StableDiffusionPipeline } from "https://unpkg.com/@mlc-ai/web-stable-diffusion@0.1.4/dist/index.js";
+    import { pipeline } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.1";
 
     const log = document.getElementById('log');
-    const img = document.getElementById('result');
+    const canvas = document.getElementById('result');
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
     let pipe;
 
     async function init() {
       log.textContent = '모델 로딩 중...';
-      pipe = await StableDiffusionPipeline.create({
-        progress_callback(p) {
-          log.textContent = `모델 로딩 중... ${Math.round(p * 100)}%`;
-        }
-      });
+      pipe = await pipeline('text-to-image', 'Xenova/flux-schnell');
       log.textContent = '모델 준비 완료';
     }
 
@@ -76,12 +74,25 @@
     document.getElementById('generate').addEventListener('click', async () => {
       const userText = document.getElementById('prompt').value.trim();
       if (!userText) return;
-      const prompt = `8-bit pixel art, size 32x32, transparent background, vivid 8-color palette. ${userText}`;
+
       log.textContent = '생성 중...';
+      const prompt = `8-bit pixel art, size 32x32, transparent background, vivid 8-color palette. ${userText}`;
       try {
-        const { images } = await pipe.txt2img({ prompt, width: 32, height: 32 });
-        img.src = images[0]; // images[0] is base64 encoded PNG
-        log.textContent = '완료';
+        const result = await pipe(prompt, {
+          guidance_scale: 7,
+          num_inference_steps: 20,
+          height: 64,
+          width: 64
+        });
+        const dataUrl = await result.images[0].toDataURL();
+        const img = new Image();
+        img.onload = () => {
+          ctx.clearRect(0, 0, 32, 32);
+          ctx.drawImage(img, 0, 0, 32, 32);
+          log.textContent = '완료';
+        };
+        img.src = dataUrl;
+
       } catch (err) {
         console.error(err);
         log.textContent = '오류 발생';
