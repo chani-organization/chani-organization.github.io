@@ -1,91 +1,91 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <title>사칙연산 계산기</title>
+  <meta charset="UTF-8" />
+  <title>Pixel Art Generator</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: system-ui, sans-serif;
+      background: #f7f7f7;
     }
-    .calculator {
+    #app {
+      text-align: center;
+    }
+    #controls {
+      margin-bottom: 1rem;
+    }
+    #prompt {
       width: 260px;
-      margin: 50px auto;
+      padding: 0.5rem;
+      font-size: 1rem;
     }
-    #display {
-      width: 100%;
-      height: 50px;
-      font-size: 2em;
-      text-align: right;
-      padding: 5px;
-      box-sizing: border-box;
-      margin-bottom: 10px;
+    #generate {
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+      margin-left: 0.5rem;
     }
-    .buttons {
-      width: 100%;
-      border-collapse: collapse;
+    #result {
+      margin-top: 1rem;
+      width: 128px;
+      height: 128px;
+      image-rendering: pixelated;
+      border: 1px solid #ccc;
+      background: #fff;
     }
-    .buttons button {
-      width: 100%;
-      height: 40px;
-      font-size: 1.2em;
-    }
-    .buttons td {
-      padding: 2px;
+    #log {
+      margin-top: 0.5rem;
+      font-size: 0.9rem;
+      color: #555;
     }
   </style>
 </head>
 <body>
-  <div class="calculator">
-    <input type="text" id="display" readonly>
-    <table class="buttons">
-      <tr>
-        <td><button class="calc-btn" data-value="C">C</button></td>
-        <td></td>
-        <td></td>
-        <td><button class="calc-btn" data-value="/">/</button></td>
-      </tr>
-      <tr>
-        <td><button class="calc-btn" data-value="7">7</button></td>
-        <td><button class="calc-btn" data-value="8">8</button></td>
-        <td><button class="calc-btn" data-value="9">9</button></td>
-        <td><button class="calc-btn" data-value="*">*</button></td>
-      </tr>
-      <tr>
-        <td><button class="calc-btn" data-value="4">4</button></td>
-        <td><button class="calc-btn" data-value="5">5</button></td>
-        <td><button class="calc-btn" data-value="6">6</button></td>
-        <td><button class="calc-btn" data-value="-">-</button></td>
-      </tr>
-      <tr>
-        <td><button class="calc-btn" data-value="1">1</button></td>
-        <td><button class="calc-btn" data-value="2">2</button></td>
-        <td><button class="calc-btn" data-value="3">3</button></td>
-        <td><button class="calc-btn" data-value="+">+</button></td>
-      </tr>
-      <tr>
-        <td colspan="2"><button class="calc-btn" data-value="0">0</button></td>
-        <td><button class="calc-btn" data-value=".">.</button></td>
-        <td><button class="calc-btn" data-value="=">=</button></td>
-      </tr>
-    </table>
+  <div id="app">
+    <div id="controls">
+      <input id="prompt" type="text" placeholder="예: 망치를 든 악당" />
+      <button id="generate">Generate</button>
+    </div>
+    <img id="result" alt="generated pixel art" />
+    <div id="log"></div>
   </div>
-  <script>
-    const display = document.getElementById('display');
-    document.querySelectorAll('.calc-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const val = btn.dataset.value;
-        if (val === 'C') {
-          display.value = '';
-        } else if (val === '=') {
-          try {
-            display.value = eval(display.value);
-          } catch (e) {
-            display.value = 'Error';
-          }
-        } else {
-          display.value += val;
+
+  <script type="module">
+    import { StableDiffusionPipeline } from "https://unpkg.com/@mlc-ai/web-stable-diffusion@0.1.4/dist/index.js";
+
+    const log = document.getElementById('log');
+    const img = document.getElementById('result');
+    let pipe;
+
+    async function init() {
+      log.textContent = '모델 로딩 중...';
+      pipe = await StableDiffusionPipeline.create({
+        progress_callback(p) {
+          log.textContent = `모델 로딩 중... ${Math.round(p * 100)}%`;
         }
       });
+      log.textContent = '모델 준비 완료';
+    }
+
+    init();
+
+    document.getElementById('generate').addEventListener('click', async () => {
+      const userText = document.getElementById('prompt').value.trim();
+      if (!userText) return;
+      const prompt = `8-bit pixel art, size 32x32, transparent background, vivid 8-color palette. ${userText}`;
+      log.textContent = '생성 중...';
+      try {
+        const { images } = await pipe.txt2img({ prompt, width: 32, height: 32 });
+        img.src = images[0]; // images[0] is base64 encoded PNG
+        log.textContent = '완료';
+      } catch (err) {
+        console.error(err);
+        log.textContent = '오류 발생';
+      }
     });
   </script>
 </body>
