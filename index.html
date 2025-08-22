@@ -54,25 +54,35 @@
     <div id="log"></div>
   </div>
 
-  <script type="module">
-    import { pipeline } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.1";
+    <script type="module">
+      import { pipeline } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.1";
+      import "https://cdn.jsdelivr.net/npm/@huggingface/diffusers";
 
-    const log = document.getElementById('log');
-    const canvas = document.getElementById('result');
-    const ctx = canvas.getContext('2d');
-    ctx.imageSmoothingEnabled = false;
-    let pipe;
+      const log = document.getElementById('log');
+      const canvas = document.getElementById('result');
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      let pipe;
 
-    async function init() {
-      log.textContent = '모델 로딩 중...';
-      pipe = await pipeline('text-to-image', 'Xenova/flux-schnell');
-      log.textContent = '모델 준비 완료';
-    }
+      async function init() {
+        log.textContent = '모델 로딩 중...';
+        try {
+          pipe = await pipeline('text-to-image', 'Xenova/flux-schnell');
+          log.textContent = '모델 준비 완료';
+        } catch (err) {
+          console.error(err);
+          log.textContent = '모델 로딩 실패';
+        }
+      }
 
-    init();
+      init();
 
-    document.getElementById('generate').addEventListener('click', async () => {
-      const userText = document.getElementById('prompt').value.trim();
+      document.getElementById('generate').addEventListener('click', async () => {
+        if (!pipe) {
+          log.textContent = '모델이 아직 준비되지 않았습니다';
+          return;
+        }
+        const userText = document.getElementById('prompt').value.trim();
       if (!userText) return;
 
       log.textContent = '생성 중...';
