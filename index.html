@@ -48,7 +48,7 @@
 <body>
   <div id="app">
     <div id="controls">
-      <input id="prompt" type="text" placeholder="예: 집, 나무, 하트" />
+      <input id="prompt" type="text" placeholder="예: 고양이, 로봇, 산" />
       <button id="generate">Generate</button>
     </div>
       <canvas id="result" width="32" height="32"></canvas>
@@ -63,110 +63,53 @@
       const ctx = canvas.getContext('2d');
       ctx.imageSmoothingEnabled = false;
 
-      let classifier = null;
+      let generator = null;
       try {
-        classifier = await pipeline('zero-shot-classification', 'Xenova/distilbert-base-uncased-mnli');
+        generator = await pipeline('text-generation', 'Xenova/gpt2');
       } catch (err) {
-        console.error('Failed to load model, falling back to keyword match', err);
+        log.textContent = '모델 로드 실패';
+        throw err;
       }
 
-    const templates = {
-      heart: {
-        size: 8,
-        palette: { '1': '#e74c3c' },
-        data: [
-          '01100110',
-          '11111111',
-          '11111111',
-          '11111111',
-          '01111110',
-          '00111100',
-          '00011000',
-          '00000000'
-        ]
-      },
-      tree: {
-        size: 8,
-        palette: { '1': '#27ae60', '2': '#8e5b3a' },
-        data: [
-          '00010000',
-          '00111000',
-          '01111100',
-          '00111000',
-          '00111000',
-          '00020000',
-          '00020000',
-          '00020000'
-        ]
-      },
-      house: {
-        size: 8,
-        palette: { '1': '#c0392b', '2': '#bdc3c7', '3': '#2980b9' },
-        data: [
-          '00010000',
-          '00111000',
-          '01111100',
-          '11111111',
-          '22222222',
-          '22233222',
-          '22233222',
-          '22222222'
-        ]
-      }
-    };
-
-    function getCoords(template) {
-      const { size, palette, data } = template;
-      const coords = [];
-      for (let y = 0; y < size; y++) {
-        const row = data[y];
-        for (let x = 0; x < size; x++) {
-          const code = row[x];
-          if (code !== '0') {
-            coords.push({ x, y, color: palette[code] });
+      function draw(template) {
+        const { size, palette, data } = template;
+        const pixel = canvas.width / size;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        for (let y = 0; y < size; y++) {
+          const row = data[y];
+          for (let x = 0; x < size; x++) {
+            const code = row[x];
+            if (code !== '0') {
+              ctx.fillStyle = palette[code];
+              ctx.fillRect(x * pixel, y * pixel, pixel, pixel);
+            }
           }
         }
       }
-      return coords;
-    }
 
-    function draw(coords, size) {
-      const pixel = canvas.width / size;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      coords.forEach(p => {
-        ctx.fillStyle = p.color;
-        ctx.fillRect(p.x * pixel, p.y * pixel, pixel, pixel);
-      });
-    }
-
-    function keywordClassify(text) {
-      const t = text.toLowerCase();
-      if (t.includes('heart') || t.includes('하트') || t.includes('심장')) return 'heart';
-      if (t.includes('tree') || t.includes('나무')) return 'tree';
-      if (t.includes('house') || t.includes('집')) return 'house';
-      return null;
-    }
-
-    document.getElementById('generate').addEventListener('click', async () => {
-      const text = document.getElementById('prompt').value.trim();
-      if (!text) return;
-      let label = 'heart';
-      if (classifier) {
-        try {
-          const result = await classifier(text, Object.keys(templates));
-          label = result.labels[0];
-        } catch (err) {
-          console.error('Classification failed, using keywords', err);
-          label = keywordClassify(text) || 'heart';
-        }
-      } else {
-        label = keywordClassify(text) || 'heart';
+      async function generateTemplate(text) {
+        const prompt = `Create an 8x8 pixel art of "${text}".\n` +
+          'Respond with JSON {"size":8,"palette":{"1":"#RRGGBB"...},"data":["........"]}';
+        const result = await generator(prompt, { max_new_tokens: 200 });
+        const raw = result[0].generated_text;
+        const match = raw.match(/\{[\s\S]*\}/);
+        if (!match) throw new Error('No template returned');
+        return JSON.parse(match[0]);
       }
-      const template = templates[label];
-      const coords = getCoords(template);
-      draw(coords, template.size);
-      log.textContent = `${label}: ${JSON.stringify(coords)}`;
-    });
-  </script>
-</body>
+
+      document.getElementById('generate').addEventListener('click', async () => {
+        const text = document.getElementById('prompt').value.trim();
+        if (!text) return;
+        log.textContent = '생성 중...';
+        try {
+          const template = await generateTemplate(text);
+          draw(template);
+          log.textContent = '완료';
+        } catch (err) {
+          console.error(err);
+          log.textContent = '실패';
+        }
+      });
+    </script>
+  </body>
 </html>
