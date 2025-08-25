@@ -47,71 +47,103 @@
 <body>
   <div id="app">
     <div id="controls">
-      <input id="prompt" type="text" placeholder="예: 망치를 든 악당" />
+      <input id="prompt" type="text" placeholder="예: 집, 나무, 하트" />
       <button id="generate">Generate</button>
     </div>
       <canvas id="result" width="32" height="32"></canvas>
     <div id="log"></div>
   </div>
 
-    <script type="module">
-      // Use a recent version of Transformers.js that supports `text-to-image`.
-      // Earlier releases (e.g. 2.6.1) did not include this pipeline and
-      // resulted in "Unsupported pipeline" errors. The latest version
-      // available on the CDN is loaded by omitting the explicit version
-      // number.
-      import { pipeline } from "https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/transformers.min.js";
+  <script type="module">
+    import { pipeline } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.2.1';
 
-      const log = document.getElementById('log');
-      const canvas = document.getElementById('result');
-      const ctx = canvas.getContext('2d');
-      ctx.imageSmoothingEnabled = false;
-      let pipe;
+    const log = document.getElementById('log');
+    const canvas = document.getElementById('result');
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
 
-      async function init() {
-        log.textContent = '모델 로딩 중...';
-        try {
-          pipe = await pipeline('text-to-image', 'Xenova/flux-schnell');
-          log.textContent = '모델 준비 완료';
-        } catch (err) {
-          console.error(err);
-          log.textContent = '모델 로딩 실패';
+    const templates = {
+      heart: {
+        size: 8,
+        palette: { '1': '#e74c3c' },
+        data: [
+          '01100110',
+          '11111111',
+          '11111111',
+          '11111111',
+          '01111110',
+          '00111100',
+          '00011000',
+          '00000000'
+        ]
+      },
+      tree: {
+        size: 8,
+        palette: { '1': '#27ae60', '2': '#8e5b3a' },
+        data: [
+          '00010000',
+          '00111000',
+          '01111100',
+          '00111000',
+          '00111000',
+          '00020000',
+          '00020000',
+          '00020000'
+        ]
+      },
+      house: {
+        size: 8,
+        palette: { '1': '#c0392b', '2': '#bdc3c7', '3': '#2980b9' },
+        data: [
+          '00010000',
+          '00111000',
+          '01111100',
+          '11111111',
+          '22222222',
+          '22233222',
+          '22233222',
+          '22222222'
+        ]
+      }
+    };
+
+    function getCoords(template) {
+      const { size, palette, data } = template;
+      const coords = [];
+      for (let y = 0; y < size; y++) {
+        const row = data[y];
+        for (let x = 0; x < size; x++) {
+          const code = row[x];
+          if (code !== '0') {
+            coords.push({ x, y, color: palette[code] });
+          }
         }
       }
+      return coords;
+    }
 
-      init();
-
-      document.getElementById('generate').addEventListener('click', async () => {
-        if (!pipe) {
-          log.textContent = '모델이 아직 준비되지 않았습니다';
-          return;
-        }
-        const userText = document.getElementById('prompt').value.trim();
-        if (!userText) return;
-
-        log.textContent = '생성 중...';
-        const prompt = `8-bit pixel art, size 32x32, transparent background, vivid 8-color palette. ${userText}`;
-        try {
-          const output = await pipe(prompt, {
-            guidance_scale: 7,
-            num_inference_steps: 20,
-            height: 64,
-            width: 64
-          });
-          const image = Array.isArray(output) ? output[0] : output.images[0];
-          const dataUrl = await image.toDataURL();
-          const img = new Image();
-          img.onload = () => {
-            ctx.clearRect(0, 0, 32, 32);
-            ctx.drawImage(img, 0, 0, 32, 32);
-            log.textContent = '완료';
-          };
-          img.src = dataUrl;
-        } catch (err) {
-          console.error(err);
-          log.textContent = '오류 발생';
-        }
+    function draw(coords, size) {
+      const pixel = canvas.width / size;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      coords.forEach(p => {
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x * pixel, p.y * pixel, pixel, pixel);
       });
-    </script>
+    }
+
+    const classifier = await pipeline('zero-shot-classification', 'Xenova/nli-roberta-base-v2');
+
+    document.getElementById('generate').addEventListener('click', async () => {
+      const text = document.getElementById('prompt').value.trim();
+      if (!text) return;
+      const labels = Object.keys(templates);
+      const result = await classifier(text, labels);
+      const label = result.labels[0];
+      const template = templates[label];
+      const coords = getCoords(template);
+      draw(coords, template.size);
+      log.textContent = `${label}: ${JSON.stringify(coords)}`;
+    });
+  </script>
 </body>
 </html>
