@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html lang="ko">
-<head>
-  <meta charset="UTF-8" />
-  <title>Pixel Art Generator</title>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Pixel Art Generator</title>
+    <link rel="icon" href="favicon.ico" />
   <style>
     body {
       margin: 0;
@@ -54,13 +55,20 @@
     <div id="log"></div>
   </div>
 
-  <script type="module">
-    import { pipeline } from "https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/transformers.min.js";
+    <script type="module">
+      import { pipeline } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers';
 
-    const log = document.getElementById('log');
-    const canvas = document.getElementById('result');
-    const ctx = canvas.getContext('2d');
-    ctx.imageSmoothingEnabled = false;
+      const log = document.getElementById('log');
+      const canvas = document.getElementById('result');
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+
+      let classifier = null;
+      try {
+        classifier = await pipeline('zero-shot-classification', 'Xenova/nli-roberta-base-v2');
+      } catch (err) {
+        console.error('Failed to load model, falling back to keyword match', err);
+      }
 
     const templates = {
       heart: {
@@ -131,14 +139,29 @@
       });
     }
 
-    const classifier = await pipeline('zero-shot-classification', 'Xenova/nli-roberta-base-v2');
+    function keywordClassify(text) {
+      const t = text.toLowerCase();
+      if (t.includes('heart') || t.includes('하트') || t.includes('심장')) return 'heart';
+      if (t.includes('tree') || t.includes('나무')) return 'tree';
+      if (t.includes('house') || t.includes('집')) return 'house';
+      return null;
+    }
 
     document.getElementById('generate').addEventListener('click', async () => {
       const text = document.getElementById('prompt').value.trim();
       if (!text) return;
-      const labels = Object.keys(templates);
-      const result = await classifier(text, labels);
-      const label = result.labels[0];
+      let label = 'heart';
+      if (classifier) {
+        try {
+          const result = await classifier(text, Object.keys(templates));
+          label = result.labels[0];
+        } catch (err) {
+          console.error('Classification failed, using keywords', err);
+          label = keywordClassify(text) || 'heart';
+        }
+      } else {
+        label = keywordClassify(text) || 'heart';
+      }
       const template = templates[label];
       const coords = getCoords(template);
       draw(coords, template.size);
