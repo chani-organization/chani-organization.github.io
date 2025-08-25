@@ -4,124 +4,283 @@
     <meta charset="UTF-8" />
     <title>Pixel Art Generator</title>
     <link rel="icon" href="favicon.ico" />
-  <style>
-    body {
-      margin: 0;
-      height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: system-ui, sans-serif;
-      background: #f7f7f7;
-    }
-    #app {
-      text-align: center;
-    }
-    #controls {
-      margin-bottom: 1rem;
-    }
-    #prompt {
-      width: 260px;
-      padding: 0.5rem;
-      font-size: 1rem;
-    }
-    #generate {
-      padding: 0.5rem 1rem;
-      font-size: 1rem;
-      margin-left: 0.5rem;
-    }
-    #result {
-      margin-top: 1rem;
-      width: 128px;
-      height: 128px;
-      image-rendering: pixelated;
-      border: 1px solid #ccc;
-      background: #fff;
-    }
-    #log {
-      margin-top: 0.5rem;
-      font-size: 0.9rem;
-      color: #555;
-    }
-  </style>
-</head>
-<body>
-  <div id="app">
-    <div id="controls">
-      <input id="prompt" type="text" placeholder="예: 고양이, 로봇, 산" />
-      <button id="generate">Generate</button>
-    </div>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root { --size: 32; --display-size: 256px; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        height: 100vh;
+        display: grid;
+        place-items: center;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        background: #f7f7f7;
+      }
+      #app { text-align: center; padding: 1rem; }
+      #controls { display: flex; gap: .5rem; justify-content: center; flex-wrap: wrap; margin-bottom: 1rem; }
+      #prompt, select, button {
+        font-size: 1rem; padding: .55rem .7rem; border: 1px solid #c9c9c9; border-radius: .4rem; background: #fff;
+      }
+      button { cursor: pointer; }
+      #result {
+        margin: .75rem auto 0;
+        width: var(--display-size);
+        height: var(--display-size);
+        image-rendering: pixelated;
+        border: 1px solid #d0d0d0;
+        background: #fff;
+      }
+      #log { margin-top: .5rem; font-size: .9rem; color: #555; white-space: pre-wrap; }
+      #row { display: flex; gap: .5rem; justify-content: center; flex-wrap: wrap; margin-top: .5rem; }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div id="controls">
+        <input id="prompt" type="text" placeholder="예: 고양이, 로봇, 산" />
+        <select id="size">
+          <option value="8">8×8</option>
+          <option value="16" selected>16×16</option>
+          <option value="32">32×32</option>
+        </select>
+        <select id="model">
+          <option value="onnx-community/LFM2-350M-ONNX" selected>LFM2-350M (권장)</option>
+          <option value="onnx-community/ettin-decoder-150m-ONNX">Ettin-Decoder-150M (초경량)</option>
+        </select>
+        <button id="generate">Generate</button>
+      </div>
       <canvas id="result" width="32" height="32"></canvas>
-    <div id="log"></div>
-  </div>
+      <div id="row">
+        <button id="download">PNG 다운로드</button>
+        <button id="clear">지우기</button>
+      </div>
+      <div id="log"></div>
+    </div>
 
     <script type="module">
-      import { pipeline } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers';
+      import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.0';
 
-      const log = document.getElementById('log');
-      const canvas = document.getElementById('result');
-      const ctx = canvas.getContext('2d');
+      const $ = (q) => document.querySelector(q);
+      const logEl = $('#log');
+      const canvas = $('#result');
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
       ctx.imageSmoothingEnabled = false;
 
+      const defaultPalette = {
+        '1': '#000000','2': '#ffffff','3': '#ff4d4d','4': '#ffa64d',
+        '5': '#ffe14d','6': '#4dff88','7': '#4dd2ff','8': '#7a7aff',
+        '9': '#b84dff','A': '#8b5a2b','B': '#708090','C': '#c0c0c0'
+      };
+
       let generator = null;
-      try {
+      let currentModel = null;
+      let busy = false;
 
-        // DistilGPT2 provides a smaller, pre-converted model for use in the browser
-        generator = await pipeline('text-generation', 'Xenova/distilgpt2');
+      const hasWebGPU = !!navigator.gpu;
+      const device = hasWebGPU ? 'webgpu' : 'wasm';
+      const dtypeWebGPU = 'q4';
+      const dtypeWASM = 'q8';
 
-      } catch (err) {
-        log.textContent = '모델 로드 실패';
-        throw err;
+      env.allowRemoteModels = true;
+
+      function setStatus(t) {
+        logEl.textContent = t;
+      }
+
+      function appendStatus(t) {
+        logEl.textContent = (logEl.textContent ? logEl.textContent + '\n' : '') + t;
+      }
+
+      async function ensureGenerator(modelId) {
+        if (generator && currentModel === modelId) return;
+        setStatus(`모델 로드 중 (${device})...`);
+        currentModel = modelId;
+        generator = await pipeline(
+          'text-generation',
+          modelId,
+          {
+            device,
+            dtype: hasWebGPU ? dtypeWebGPU : dtypeWASM,
+            progress_callback: (e) => {
+              if (!e) return;
+              if (e.status && e.progress != null) {
+                setStatus(`모델 로드: ${e.status} ${Math.round(e.progress * 100)}%`);
+              } else if (e.file) {
+                appendStatus(`다운로드: ${e.file}`);
+              }
+            }
+          }
+        );
+        appendStatus('모델 준비 완료');
+      }
+
+      function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
+
+      function extractJSON(text) {
+        const codeBlock = /```(?:json)?\s*([\s\S]*?)\s*```/i.exec(text);
+        const body = codeBlock ? codeBlock[1] : (function() {
+          const m = text.match(/\{[\s\S]*\}/);
+          return m ? m[0] : text;
+        })();
+        let s = body.trim();
+        // Simple repairs
+        s = s.replace(/(\r?\n)+/g, '\n');
+        s = s.replace(/(\w+)\s*:/g, '"$1":'); // quote keys
+        s = s.replace(/'/g, '"'); // single -> double
+        s = s.replace(/,(\s*[}\]])/g, '$1'); // trailing commas
+        return JSON.parse(s);
+      }
+
+      function normalizeTemplate(t, targetSize) {
+        const size = clamp((t && t.size) || targetSize, 4, 32);
+        const palette = Object.fromEntries(
+          Object.entries({ ...defaultPalette, ...(t && t.palette || {}) })
+          .map(([k, v]) => [String(k), String(v)])
+        );
+        let data = t && t.data ? t.data : [];
+        if (!Array.isArray(data)) data = [];
+        data = data.slice(0, size).map(row => {
+          if (Array.isArray(row)) return row.map(String).slice(0, size);
+          if (typeof row === 'string') return row.replace(/\s/g, '').split('').slice(0, size);
+          return [];
+        });
+        while (data.length < size) data.push(Array(size).fill('0'));
+        data = data.map(r => {
+          if (r.length < size) return r.concat(Array(size - r.length).fill('0'));
+          return r;
+        });
+        return { size, palette, data };
       }
 
       function draw(template) {
         const { size, palette, data } = template;
-        const pixel = canvas.width / size;
+        const baseCanvasSize = 32; // keep internal canvas small, scaled via CSS
+        canvas.width = baseCanvasSize;
+        canvas.height = baseCanvasSize;
+        const px = baseCanvasSize / size;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         for (let y = 0; y < size; y++) {
           const row = data[y];
           for (let x = 0; x < size; x++) {
-            const code = row[x];
-            if (code !== '0') {
-              ctx.fillStyle = palette[code];
-              ctx.fillRect(x * pixel, y * pixel, pixel, pixel);
-            }
+            const code = String(row[x] ?? '0');
+            if (code === '0' || code === '.' || code === ' ') continue;
+            const color = palette[code] || defaultPalette[code] || '#000000';
+            ctx.fillStyle = color;
+            ctx.fillRect(Math.floor(x * px), Math.floor(y * px), Math.ceil(px), Math.ceil(px));
           }
         }
       }
 
-      async function generateTemplate(text) {
-        const prompt = `Create an 8x8 pixel art of "${text}".\n` +
-          'Respond with JSON {"size":8,"palette":{"1":"#RRGGBB"...},"data":["........"]}';
-        const result = await generator(prompt, {
-          max_new_tokens: 120,
-          return_full_text: false,
-          do_sample: true,
-          temperature: 0.8,
-          top_p: 0.9,
-          top_k: 50,
-        });
-        const raw = result[0].generated_text.replace(/^[\s\n]+/, '').replace(/[\s\n]+$/, '');
-        const match = raw.match(/\{[\s\S]*\}/);
-        if (!match) {
-          throw new Error("No template returned. Raw output: " + raw);
+      function fallbackTemplate(text, targetSize) {
+        const s = clamp(targetSize, 4, 32);
+        const hash = Array.from(text).reduce((h, c) => (h * 131 + c.charCodeAt(0)) >>> 0, 0);
+        const keys = Object.keys(defaultPalette);
+        const data = [];
+        for (let y = 0; y < s; y++) {
+          const row = [];
+          for (let x = 0; x < s; x++) {
+            const v = ((x + 1) * (y + 7) + ((hash >> (x % 16)) & 0xff) + y * 13) % (keys.length + 2);
+            row.push(v < 2 ? '0' : keys[v - 2]);
+          }
+          data.push(row);
         }
-        return JSON.parse(match[0]);
+        return { size: s, palette: defaultPalette, data };
       }
 
-      document.getElementById('generate').addEventListener('click', async () => {
-        const text = document.getElementById('prompt').value.trim();
+      function buildMessages(koreanText, targetSize) {
+        const schema = JSON.stringify({
+          size: targetSize,
+          palette: { "1": "#RRGGBB" },
+          data: Array(targetSize).fill(0).map(() => ".".repeat(targetSize))
+        });
+        const sys = [
+          '너는 PixelArtJSON 도우미야.',
+          '반드시 JSON만 출력하고 다른 텍스트를 포함하지 마.',
+          'JSON 스키마: {"size": number (4~32), "palette": {"code":"hex"}, "data": string[]}.',
+          'data의 각 문자는 팔레트의 키 또는 "0"(투명).',
+          '팔레트 키는 숫자/알파벳 한 글자, 색상은 #RRGGBB.',
+          '예시는 참고용일 뿐, 반드시 주어진 설명에 맞춰 생성해.'
+        ].join(' ');
+        const user = [
+          `설명: "${koreanText}"`,
+          `크기: ${targetSize}×${targetSize}`,
+          `필수 요구사항:`,
+          `1) JSON만 출력`,
+          `2) "size": ${targetSize}`,
+          `3) "data"는 길이 ${targetSize}의 문자열 ${targetSize}개`,
+          `4) "palette"는 사용한 코드만 포함`,
+          `5) 불필요한 주석/설명 금지`,
+          `초기 예시: \`\`\`json\n${schema}\n\`\`\``,
+          `최종 출력은 예시 없이 JSON만!`
+        ].join('\n');
+        return [
+          { role: 'system', content: sys },
+          { role: 'user', content: user }
+        ];
+      }
+
+      async function generateTemplate(text, targetSize, modelId) {
+        await ensureGenerator(modelId);
+        const messages = modelId.includes('LFM2')
+          ? buildMessages(text, targetSize)
+          : [
+              // Ettin/ModernBERT-Decoder 계열은 일반 프롬프트가 안정적
+              `다음 설명을  ${targetSize}x${targetSize} 픽셀아트 JSON으로 만들어. JSON만 출력.\n설명: "${text}"\n스키마: {"size":${targetSize},"palette":{"1":"#RRGGBB"...},"data":["..."]}\nJSON만!`
+            ];
+        const output = await generator(messages, {
+          max_new_tokens: 220,
+          do_sample: false,
+          repetition_penalty: 1.05
+        });
+        const content = Array.isArray(output?.[0]?.generated_text)
+          ? output[0].generated_text.at(-1).content
+          : (output?.[0]?.generated_text ?? '');
+        const json = extractJSON(content);
+        return normalizeTemplate(json, targetSize);
+      }
+
+      $('#generate').addEventListener('click', async () => {
+        if (busy) return;
+        const text = $('#prompt').value.trim();
+        const targetSize = parseInt($('#size').value, 10) || 16;
+        const modelId = $('#model').value;
         if (!text) return;
-        log.textContent = '생성 중...';
+        busy = true;
+        setStatus('생성 중...');
         try {
-          const template = await generateTemplate(text);
-          draw(template);
-          log.textContent = '완료';
+          const tpl = await generateTemplate(text, targetSize, modelId);
+          draw(tpl);
+          setStatus('완료');
         } catch (err) {
           console.error(err);
-          log.textContent = '실패';
+          appendStatus('LLM 생성 실패. 폴백 템플릿을 사용합니다.');
+          const tpl = fallbackTemplate(text, targetSize);
+          draw(tpl);
+          setStatus('폴백으로 완료');
+        } finally {
+          busy = false;
         }
       });
+
+      $('#download').addEventListener('click', () => {
+        const a = document.createElement('a');
+        a.download = 'pixel-art.png';
+        a.href = canvas.toDataURL('image/png');
+        a.click();
+      });
+
+      $('#clear').addEventListener('click', () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        setStatus('캔버스 초기화');
+      });
+
+      // UX: Enter로 생성
+      $('#prompt').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') $('#generate').click();
+      });
+
+      // 초기 안내
+      setStatus(`장치: ${device}${hasWebGPU ? ' (WebGPU 가속)' : ''}`);
     </script>
   </body>
 </html>
