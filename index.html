@@ -93,10 +93,16 @@
       async function generateTemplate(text) {
         const prompt = `Create an 8x8 pixel art of "${text}".\n` +
           'Respond with JSON {"size":8,"palette":{"1":"#RRGGBB"...},"data":["........"]}';
-        const result = await generator(prompt, { max_new_tokens: 200 });
-        const raw = result[0].generated_text;
+        const result = await generator(prompt, {
+          max_new_tokens: 400,
+          return_full_text: false,
+          do_sample: false,
+        });
+        const raw = result[0].generated_text.trim();
         const match = raw.match(/\{[\s\S]*\}/);
-        if (!match) throw new Error('No template returned');
+        if (!match) {
+          throw new Error("No template returned. Raw output: " + raw);
+        }
         return JSON.parse(match[0]);
       }
 
