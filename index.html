@@ -65,7 +65,7 @@
 
       let classifier = null;
       try {
-        classifier = await pipeline('zero-shot-classification', 'Xenova/nli-roberta-base-v2');
+        classifier = await pipeline('zero-shot-classification', 'Xenova/distilbert-base-uncased-mnli');
       } catch (err) {
         console.error('Failed to load model, falling back to keyword match', err);
       }
