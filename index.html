@@ -55,8 +55,7 @@
   </div>
 
     <script type="module">
-      import "https://cdn.jsdelivr.net/npm/@huggingface/transformers";
-      import { DiffusionPipeline } from "https://cdn.jsdelivr.net/npm/@huggingface/diffusers";
+      import { pipeline } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.6.1/dist/transformers.min.js";
 
       const log = document.getElementById('log');
       const canvas = document.getElementById('result');
@@ -67,7 +66,7 @@
       async function init() {
         log.textContent = '모델 로딩 중...';
         try {
-          pipe = await DiffusionPipeline.from_pretrained('Xenova/flux-schnell');
+          pipe = await pipeline('text-to-image', 'Xenova/flux-schnell');
           log.textContent = '모델 준비 완료';
         } catch (err) {
           console.error(err);
@@ -88,13 +87,14 @@
         log.textContent = '생성 중...';
         const prompt = `8-bit pixel art, size 32x32, transparent background, vivid 8-color palette. ${userText}`;
         try {
-          const result = await pipe(prompt, {
+          const output = await pipe(prompt, {
             guidance_scale: 7,
             num_inference_steps: 20,
             height: 64,
             width: 64
           });
-          const dataUrl = await result.images[0].toDataURL();
+          const image = Array.isArray(output) ? output[0] : output.images[0];
+          const dataUrl = await image.toDataURL();
           const img = new Image();
           img.onload = () => {
             ctx.clearRect(0, 0, 32, 32);
