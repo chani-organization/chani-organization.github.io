@@ -2,516 +2,307 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
-    <title>Pixel Art Generator – semantic</title>
+    <title>PixelLab-Lite</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
-      :root { --display-size: 256px; }
+      :root { --display: 256px; }
       * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        height: 100vh;
-        display: grid;
-        place-items: center;
-        background: #f6f7f9;
-        font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      }
-      #app { text-align: center; padding: 1rem; }
-      #controls { display: flex; gap: .5rem; justify-content: center; flex-wrap: wrap; margin-bottom: .75rem; }
-      input, select, button {
-        font-size: 1rem; padding: .55rem .7rem; border: 1px solid #c9c9c9; border-radius: .45rem; background: #fff;
-      }
-      button { cursor: pointer; }
-      #result {
-        width: var(--display-size);
-        height: var(--display-size);
-        image-rendering: pixelated;
-        border: 1px solid #dadde3;
-        background: #fff;
-        margin: .5rem auto 0;
-      }
-      #row { display: flex; gap: .5rem; justify-content: center; flex-wrap: wrap; margin-top: .5rem; }
-      #log { margin-top: .5rem; font-size: .9rem; color: #4b5563; white-space: pre-wrap; min-height: 1.5em; }
+      body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0f1216; color: #e5e7eb; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
+      #app { width: 100%; max-width: 1000px; padding: 16px; display: grid; gap: 12px; }
+      #top { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+      #controls { display: grid; grid-template-columns: 1fr repeat(6, max-content); gap: 8px; align-items: center; }
+      input[type="text"] { width: 100%; padding: 10px 12px; border: 1px solid #2b3038; border-radius: 10px; background: #12161c; color: #e5e7eb; }
+      select, input[type="color"], input[type="number"] { padding: 10px 12px; border: 1px solid #2b3038; border-radius: 10px; background: #12161c; color: #e5e7eb; }
+      button { padding: 10px 14px; border: 1px solid #2b3038; border-radius: 10px; background: #1b2028; color: #e5e7eb; cursor: pointer; }
+      button:disabled { opacity: .6; cursor: not-allowed; }
+      #opts { display: grid; grid-template-columns: repeat(6, max-content); gap: 8px; align-items: center; }
+      .row { display: flex; gap: 8px; align-items: center; }
+      .switch { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; }
+      #stage { display: grid; grid-template-columns: repeat(1, var(--display)); gap: 12px; justify-content: center; }
+      .card { background: #0c0f13; border: 1px solid #20252d; border-radius: 12px; padding: 12px; display: grid; gap: 8px; place-items: center; }
+      canvas { width: var(--display); height: var(--display); image-rendering: pixelated; background: transparent; }
+      #log { font-size: 12px; color: #9aa3af; white-space: pre-wrap; min-height: 1.2em; }
+      @media (max-width: 900px){ #controls { grid-template-columns: 1fr 1fr 1fr; } #opts { grid-template-columns: 1fr 1fr 1fr; } #top { grid-template-columns: 1fr; } }
     </style>
   </head>
   <body>
     <div id="app">
-      <div id="controls">
-        <input id="prompt" type="text" placeholder="예: 빨간 하트, 귀여운 고양이, 파란 로봇" />
-        <select id="size">
-          <option value="8">8×8</option>
-          <option value="16" selected>16×16</option>
-          <option value="24">24×24</option>
-          <option value="32">32×32</option>
-        </select>
-        <select id="model">
-          <option value="none" selected>사전 매핑만(가벼움)</option>
-          <option value="onnx-community/ettin-decoder-150m-ONNX">Ettin-Decoder-150M(초경량 LLM)</option>
-          <option value="onnx-community/LFM2-350M-ONNX">LFM2-350M(정확성↑)</option>
-        </select>
-        <button id="generate">Generate</button>
+      <div id="top">
+        <div id="controls">
+          <input id="prompt" type="text" placeholder="예: 빨간 하트, 귀여운 고양이, 파란 로봇, 노란 해, 초록 선인장" />
+          <select id="size">
+            <option value="16">16×16</option>
+            <option value="24" selected>24×24</option>
+            <option value="32">32×32</option>
+          </select>
+          <select id="palette">
+            <option value="vivid" selected>Vivid</option>
+            <option value="retro">Retro/NES</option>
+            <option value="gb">GameBoy</option>
+            <option value="pastel">Pastel</option>
+            <option value="mono">Mono</option>
+          </select>
+          <select id="style">
+            <option value="flat" selected>Flat</option>
+            <option value="shaded">Shaded</option>
+            <option value="dither">Dither</option>
+          </select>
+          <select id="gen">
+            <option value="rule" selected>Rule-based(빠름)</option>
+            <option value="llm-ettin">LLM: Ettin-150M</option>
+          </select>
+          <button id="generate">Generate</button>
+        </div>
+        <div class="row">
+          <button id="remix">Remix</button>
+          <button id="download">PNG 다운로드</button>
+        </div>
       </div>
-      <canvas id="result" width="16" height="16"></canvas>
-      <div id="row">
-        <button id="download">PNG 다운로드</button>
-        <button id="clear">지우기</button>
-        <label style="display:inline-flex;align-items:center;gap:.35rem">
-          <input id="gridToggle" type="checkbox" /> 그리드
-        </label>
+      <div id="opts">
+        <label class="switch"><input id="symx" type="checkbox" checked />좌우대칭</label>
+        <label class="switch"><input id="grid" type="checkbox" />그리드</label>
+        <label class="switch"><input id="outline" type="checkbox" checked />아웃라인</label>
+        <label class="switch"><input id="transparent" type="checkbox" checked />배경 투명</label>
+        <label class="switch">배경색<input id="bg" type="color" value="#151922" /></label>
+        <label class="switch">Seed<input id="seed" type="number" value="1" min="0" max="999999" style="width:100px" /></label>
+      </div>
+      <div id="stage">
+        <div class="card">
+          <canvas id="canvas" width="24" height="24"></canvas>
+        </div>
       </div>
       <div id="log"></div>
     </div>
 
     <script type="module">
-      const $ = (q) => document.querySelector(q);
-      const canvas = $('#result');
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      const $ = (q)=>document.querySelector(q);
+      const log = (t)=>{ $('#log').textContent = t; };
+      const append = (t)=>{ $('#log').textContent += ($('#log').textContent?'\n':'')+t; };
+
+      const cv = $('#canvas');
+      const ctx = cv.getContext('2d', { willReadFrequently: true });
       ctx.imageSmoothingEnabled = false;
 
-      let busy = false;
-      let generator = null;
-      let currentModel = 'none';
+      let N = 24;
+      let MASK = new Uint8Array(N*N);
+      let OUTLINE = new Uint8Array(N*N);
+      function setSize(n){ N = n; cv.width = n; cv.height = n; MASK = new Uint8Array(n*n); OUTLINE = new Uint8Array(n*n); }
 
-      // ======= color utils =======
+      function mulberry32(a){ return function(){ let t = a += 0x6D2B79F5; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+      const clamp01 = (x)=>Math.max(0,Math.min(1,x));
+      const hex = (v)=>v.toString(16).padStart(2,'0');
+      const hexToRgb = (h)=>{ const s=h.replace('#',''); const n = s.length===3? parseInt(s.split('').map(c=>c+c).join(''),16) : parseInt(s,16); return { r:(n>>16)&255, g:(n>>8)&255, b:n&255 }; };
+      const rgbToHex = (r,g,b)=>'#'+hex(r)+hex(g)+hex(b);
+      const lighten = (h, a=.2)=>{ const {r,g,b}=hexToRgb(h); return rgbToHex(Math.round(r+(255-r)*a), Math.round(g+(255-g)*a), Math.round(b+(255-b)*a)); };
+      const darken = (h, a=.2)=>{ const {r,g,b}=hexToRgb(h); return rgbToHex(Math.round(r*(1-a)), Math.round(g*(1-a)), Math.round(b*(1-a))); };
+
+      const PALETTES = {
+        vivid: ['#000000','#ffffff','#e53935','#ff8c42','#ffd166','#2ecc71','#1e90ff','#7c4dff','#ff66b3','#8d6e63','#90a4ae'],
+        retro: ['#000000','#ffffff','#ff004d','#ffa300','#ffec27','#00e756','#29adff','#83769c','#ff77a8','#c2c3c7','#5f574f'],
+        gb: ['#0f380f','#306230','#8bac0f','#9bbc0f','#cadc9f','#0a1f0a','#223322'],
+        pastel: ['#000000','#ffffff','#ffadad','#ffd6a5','#fdffb6','#caffbf','#9bf6ff','#bdb2ff','#ffc6ff','#c1c1c1'],
+        mono: ['#000000','#333333','#666666','#999999','#cccccc','#ffffff']
+      };
+
       const NAMED = {
-        red:'#e74c3c', blue:'#1e90ff', green:'#2ecc71', yellow:'#ffd90f', orange:'#ff8c42', pink:'#ff66b3',
-        purple:'#9b59b6', brown:'#8e5a3c', black:'#000000', white:'#ffffff', gray:'#9aa0a6', grey:'#9aa0a6',
-        cyan:'#00bcd4', teal:'#20c997', gold:'#ffd700', silver:'#c0c0c0',
-        빨강:'#e74c3c', 빨간:'#e74c3c', 파랑:'#1e90ff', 파란:'#1e90ff', 초록:'#2ecc71', 녹색:'#2ecc71',
-        노랑:'#ffd90f', 주황:'#ff8c42', 분홍:'#ff66b3', 보라:'#9b59b6', 갈색:'#8e5a3c', 검정:'#000000',
-        하양:'#ffffff', 흰색:'#ffffff', 회색:'#9aa0a6', 하늘:'#87ceeb', 청록:'#20c997', 금색:'#ffd700', 은색:'#c0c0c0'
+        red:'#e53935', blue:'#1e90ff', green:'#2ecc71', yellow:'#ffd166', orange:'#ff8c42', pink:'#ff66b3', purple:'#7c4dff', brown:'#8d6e63', black:'#000000', white:'#ffffff', gray:'#9aa0a6', grey:'#9aa0a6', cyan:'#29adff', teal:'#20c997', gold:'#ffd700', silver:'#c0c0c0',
+        빨강:'#e53935', 빨간:'#e53935', 파랑:'#1e90ff', 파란:'#1e90ff', 초록:'#2ecc71', 녹색:'#2ecc71', 노랑:'#ffd166', 주황:'#ff8c42', 분홍:'#ff66b3', 보라:'#7c4dff', 갈색:'#8d6e63', 검정:'#000000', 하양:'#ffffff', 흰색:'#ffffff', 회색:'#9aa0a6', 하늘:'#87ceeb', 청록:'#20c997', 금색:'#ffd700', 은색:'#c0c0c0'
       };
-      function clamp01(t){ return Math.max(0, Math.min(1, t)); }
-      function hexToRgb(hex){
-        const c = hex.replace('#','');
-        const n = parseInt(c.length===3 ? c.split('').map(ch=>ch+ch).join('') : c, 16);
-        return { r:(n>>16)&255, g:(n>>8)&255, b:n&255 };
-      }
-      function rgbToHex({r,g,b}){
-        const to = (v)=>v.toString(16).padStart(2,'0');
-        return '#'+to(r)+to(g)+to(b);
-      }
-      function lighten(hex, amt=0.2){
-        const {r,g,b} = hexToRgb(hex);
-        return rgbToHex({ r:Math.round(r+(255-r)*amt), g:Math.round(g+(255-g)*amt), b:Math.round(b+(255-b)*amt) });
-      }
-      function darken(hex, amt=0.2){
-        const {r,g,b} = hexToRgb(hex);
-        return rgbToHex({ r:Math.round(r*(1-amt)), g:Math.round(g*(1-amt)), b:Math.round(b*(1-amt)) });
-      }
-      function colorFromText(text, fallback){
-        for (const [k,v] of Object.entries(NAMED)){
-          if (text.includes(k)) return v;
-        }
-        const hex = text.match(/#([0-9a-fA-F]{6})/);
-        if (hex) return '#'+hex[1];
-        return fallback;
-      }
+      function primaryFromText(t, fallback){ for (const [k,v] of Object.entries(NAMED)){ if (t.toLowerCase().includes(k)) return v; } const m = t.match(/#([0-9a-fA-F]{6})/); return m?('#'+m[1]):fallback; }
 
-      // ======= categories & defaults =======
-      const DEFAULTS = {
-        heart:'#e53935', cat:'#f6b26b', robot:'#9aa0a6', tree:'#4caf50', mountain:'#8d99ae', house:'#d35400',
-        star:'#ffd700', skull:'#eeeeee', ghost:'#eef1ff', bird:'#4fc3f7', fish:'#00bcd4', car:'#e91e63',
-        ship:'#6c757d', mushroom:'#d32f2f', sword:'#b0bec5', shield:'#607d8b', smiley:'#ffeb3b'
-      };
       const CATS = [
-        {key:'heart', words:['heart','하트','심장','사랑']},
-        {key:'cat', words:['cat','고양','냥','야옹']},
-        {key:'robot', words:['robot','로봇','봇','안드로이드']},
-        {key:'tree', words:['tree','나무','소나무','침엽','참나무']},
-        {key:'mountain', words:['mountain','산','봉우리','peak','정상']},
-        {key:'house', words:['house','집','주택','home','홈']},
-        {key:'star', words:['star','별','별표','스타']},
-        {key:'skull', words:['skull','해골','두개골','스컬']},
-        {key:'ghost', words:['ghost','유령','고스트','귀신']},
-        {key:'bird', words:['bird','새','참새','비둘기','독수리']},
-        {key:'fish', words:['fish','물고기','피쉬','고기']},
-        {key:'car', words:['car','자동차','차','카']},
-        {key:'ship', words:['ship','배','보트','선박','요트']},
-        {key:'mushroom', words:['mushroom','버섯','머쉬룸']},
-        {key:'sword', words:['sword','검','소드','칼']},
-        {key:'shield', words:['shield','방패','실드']},
-        {key:'smiley', words:['smile','스마일','웃는','웃음','이모지','emoji']},
+        {k:'heart', w:['heart','하트','심장','사랑']},
+        {k:'cat', w:['cat','고양','냥','야옹']},
+        {k:'dog', w:['dog','강아지','개','멍']},
+        {k:'rabbit', w:['rabbit','토끼','래빗']},
+        {k:'robot', w:['robot','로봇','봇']},
+        {k:'tree', w:['tree','나무']},
+        {k:'mountain', w:['mountain','산','봉우리']},
+        {k:'house', w:['house','집','주택']},
+        {k:'star', w:['star','별']},
+        {k:'skull', w:['skull','해골']},
+        {k:'ghost', w:['ghost','유령','고스트']},
+        {k:'bird', w:['bird','새']},
+        {k:'fish', w:['fish','물고기']},
+        {k:'car', w:['car','자동차','차']},
+        {k:'ship', w:['ship','배','보트','선박','요트']},
+        {k:'mushroom', w:['mushroom','버섯']},
+        {k:'sword', w:['sword','검','소드','칼']},
+        {k:'shield', w:['shield','방패']},
+        {k:'flower', w:['flower','꽃']},
+        {k:'cactus', w:['cactus','선인장','캑터스']},
+        {k:'cloud', w:['cloud','구름']},
+        {k:'sun', w:['sun','태양','해']},
+        {k:'moon', w:['moon','달','문']},
+        {k:'snowflake', w:['snow','눈','스노우','snowflake']},
+        {k:'smiley', w:['smile','스마일','웃는','웃음','이모지','emoji']}
       ];
-      function keywordCategorize(text){
+      function categorize(text){
         const t = text.toLowerCase();
-        let best = {key:null, score:0};
+        let best = {k:'heart', s:0};
         for (const c of CATS){
           let s = 0;
-          for (const w of c.words){
-            if (t.includes(w.toLowerCase())) s += w.length;
-          }
-          if (s > best.score) best = {key:c.key, score:s};
+          for (const w of c.w){ if (t.includes(w)) s += w.length; }
+          if (s > best.s) best = {k:c.k, s};
         }
-        return best.key || 'heart';
+        return best.k;
       }
 
-      // ======= minimal LLM assist (optional) =======
-      async function ensureLLM(modelId){
-        if (modelId === 'none') { generator = null; currentModel = 'none'; return; }
-        if (generator && currentModel === modelId) return;
-        currentModel = modelId;
-        const hasWebGPU = !!navigator.gpu;
-        const device = hasWebGPU ? 'webgpu' : 'wasm';
-        const dtype = hasWebGPU ? 'q4' : 'q8';
-        const { pipeline, env } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.0');
-        env.allowRemoteModels = true;
-        generator = await pipeline('text-generation', modelId, { device, dtype });
-      }
-      async function llmCategorize(text){
-        if (!generator) return null;
-        const list = CATS.map(c=>c.key).join(', ');
-        const prompt = `You are a classifier. From [${list}], choose the single best category for: "${text}". Reply as JSON like {"category":"heart","primary":"#RRGGBB"}. If a color is mentioned, include it as hex (#RRGGBB), else leave default. JSON only.`;
-        try{
-          const out = await generator(prompt, { max_new_tokens: 60, do_sample: false });
-          const raw = String(out?.[0]?.generated_text || '').trim();
-          const match = raw.match(/\{[\s\S]*\}/);
-          if (!match) return null;
-          const obj = JSON.parse(match[0]);
-          if (!obj || !obj.category) return null;
-          return obj;
-        }catch(e){ return null; }
-      }
+      const BAYER8 = [
+        0,48,12,60,3,51,15,63,
+        32,16,44,28,35,19,47,31,
+        8,56,4,52,11,59,7,55,
+        40,24,36,20,43,27,39,23,
+        2,50,14,62,1,49,13,61,
+        34,18,46,30,33,17,45,29,
+        10,58,6,54,9,57,5,53,
+        42,26,38,22,41,25,37,21
+      ];
 
-      // ======= pixel primitives on N×N grid =======
-      let N = 16;
-      function setGrid(n){
-        N = n;
-        canvas.width = n;
-        canvas.height = n;
-        drawGridOverlay();
-      }
-      function clearCanvas(){
-        ctx.clearRect(0,0,canvas.width,canvas.height);
-        drawGridOverlay();
-      }
+      let styleMode = 'flat';
+      let symX = true;
+      let drawGrid = false;
+      let drawOutlineFlag = true;
+      let transparent = true;
+      let outlineColor = '#000000';
+      let bgColor = '#151922';
+      let paletteKey = 'vivid';
+      let rng = mulberry32(1);
+
+      function setSeedFromInputs(){ const base = ($('#prompt').value.trim()||'').split('').reduce((a,c)=>(a*131 + c.charCodeAt(0))>>>0, 0); const user = parseInt($('#seed').value||'0',10)>>>0; rng = mulberry32(base ^ user ^ (N<<16)); }
+
       function px(x,y,color){
         if (x<0||y<0||x>=N||y>=N) return;
-        ctx.fillStyle = color;
+        let c = color;
+        if (styleMode==='shaded'){ const g = ((x+y)/(2*(N-1))); const amt = (g-0.5)*0.6; c = amt>0?darken(color,Math.min(.35, Math.abs(amt))):lighten(color,Math.min(.35, Math.abs(amt))); }
+        else if (styleMode==='dither'){ const t = BAYER8[(y&7)*8+(x&7)]/63; const amt = 0.28; c = t<0.5?lighten(color,amt):darken(color,amt); }
+        ctx.fillStyle = c;
         ctx.fillRect(x, y, 1, 1);
-      }
-      function fillRect(x,y,w,h,color){
-        const x0 = Math.max(0, Math.floor(x)), y0 = Math.max(0, Math.floor(y));
-        const x1 = Math.min(N, Math.ceil(x+w)), y1 = Math.min(N, Math.ceil(y+h));
-        ctx.fillStyle = color;
-        ctx.fillRect(x0, y0, Math.max(0,x1-x0), Math.max(0,y1-y0));
-      }
-      function fillCircle(cx, cy, r, color){
-        const r2 = r*r;
-        for (let y=0; y<N; y++){
-          for (let x=0; x<N; x++){
-            const dx = (x+0.5)-cx, dy=(y+0.5)-cy;
-            if (dx*dx + dy*dy <= r2) px(x,y,color);
-          }
-        }
-      }
-      function fillEllipse(cx, cy, rx, ry, color){
-        for (let y=0; y<N; y++){
-          for (let x=0; x<N; x++){
-            const dx = (x+0.5 - cx)/rx, dy=(y+0.5 - cy)/ry;
-            if (dx*dx + dy*dy <= 1) px(x,y,color);
-          }
-        }
-      }
-      function insideTri(px_,py_, ax,ay,bx,by,cx,cy){
-        const s = (x1,y1,x2,y2,x3,y3)=> (x1-x3)*(y2-y3) - (x2-x3)*(y1-y3);
-        const a = s(px_,py_, ax,ay, bx,by, cx,cy);
-        const b = s(ax,ay, px_,py_, bx,by, cx,cy);
-        const c = s(ax,ay, bx,by, px_,py_, cx,cy);
-        const hasNeg = (a<0)||(b<0)||(c<0), hasPos = (a>0)||(b>0)||(c>0);
-        return !(hasNeg && hasPos);
-      }
-      function fillTriangle(ax,ay,bx,by,cx,cy,color){
-        const minX = Math.max(0, Math.floor(Math.min(ax,bx,cx)));
-        const maxX = Math.min(N-1, Math.ceil(Math.max(ax,bx,cx)));
-        const minY = Math.max(0, Math.floor(Math.min(ay,by,cy)));
-        const maxY = Math.min(N-1, Math.ceil(Math.max(ay,by,cy)));
-        for (let y=minY; y<=maxY; y++){
-          for (let x=minX; x<=maxX; x++){
-            if (insideTri(x+0.5,y+0.5, ax,ay,bx,by,cx,cy)) px(x,y,color);
-          }
-        }
-      }
-      function drawGridOverlay(){
-        if (!$('#gridToggle').checked) return;
-        ctx.save();
-        ctx.globalAlpha = 0.25;
-        ctx.strokeStyle = '#dcdfe6';
-        ctx.lineWidth = 0.02;
-        for (let i=1;i<N;i++){
-          ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,N); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(N,i); ctx.stroke();
-        }
-        ctx.restore();
+        MASK[y*N+x] = 1;
+        if (symX){ const mx = N-1-x; ctx.fillRect(mx, y, 1, 1); MASK[y*N+mx] = 1; }
       }
 
-      // ======= shapes =======
-      function drawHeart(col){
-        const main = col, dark = darken(col,.25), light = lighten(col,.25);
-        for (let y=0; y<N; y++){
-          for (let x=0; x<N; x++){
-            const X = (x - N*0.5) / (N*0.5) * 1.3;
-            const Y = (y - N*0.60) / (N*0.5) * 1.3;
-            const f = Math.pow(X*X+Y*Y-1,3) - X*X*Y*Y*Y;
-            if (f <= 0){
-              const w = (x+y) % 3 === 0 ? light : main;
-              px(x,y,w);
-            }
-          }
-        }
-        for (let i=0;i<N;i++){ px(i, N-1, dark); }
-        drawGridOverlay();
+      function fillRect(x,y,w,h,color){ const x0=Math.max(0,Math.floor(x)), y0=Math.max(0,Math.floor(y)), x1=Math.min(N,Math.ceil(x+w)), y1=Math.min(N,Math.ceil(h+y)); for (let j=y0;j<y1;j++){ for (let i=x0;i<x1;i++){ px(i,j,color); } } }
+      function fillCircle(cx, cy, r, color){ const r2=r*r; for (let y=0;y<N;y++){ for (let x=0;x<N;x++){ const dx=(x+0.5)-cx, dy=(y+0.5)-cy; if (dx*dx+dy*dy<=r2) px(x,y,color); } } }
+      function fillEllipse(cx, cy, rx, ry, color){ for (let y=0;y<N;y++){ for (let x=0;x<N;x++){ const dx=(x+0.5-cx)/rx, dy=(y+0.5-cy)/ry; if (dx*dx+dy*dy<=1) px(x,y,color); } } }
+      function triTest(px_,py_, ax,ay,bx,by,cx,cy){ const s=(x1,y1,x2,y2,x3,y3)=>(x1-x3)*(y2-y3)-(x2-x3)*(y1-y3); const a=s(px_,py_,ax,ay,bx,by,cx,cy), b=s(ax,ay,px_,py_,bx,by,cx,cy), c=s(ax,ay,bx,by,px_,py_,cx,cy); const n=(a<0)||(b<0)||(c<0), p=(a>0)||(b>0)||(c>0); return !(n&&p); }
+      function fillTriangle(ax,ay,bx,by,cx,cy,color){ const minX=Math.max(0,Math.floor(Math.min(ax,bx,cx))), maxX=Math.min(N-1,Math.ceil(Math.max(ax,bx,cx))), minY=Math.max(0,Math.floor(Math.min(ay,by,cy))), maxY=Math.min(N-1,Math.ceil(Math.max(ay,by,cy))); for (let y=minY;y<=maxY;y++){ for (let x=minX;x<=maxX;x++){ if (triTest(x+0.5,y+0.5, ax,ay,bx,by,cx,cy)) px(x,y,color); } } }
+
+      function clearAll(){ ctx.clearRect(0,0,N,N); MASK.fill(0); OUTLINE.fill(0); }
+      function applyBackground(){ if (transparent) return; ctx.save(); ctx.globalCompositeOperation='destination-over'; ctx.fillStyle = bgColor; ctx.fillRect(0,0,N,N); ctx.restore(); }
+      function drawGridOverlay(){ if (!drawGrid) return; ctx.save(); ctx.globalAlpha = 0.25; ctx.strokeStyle = '#2a3038'; ctx.lineWidth = 0.03; for (let i=1;i<N;i++){ ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,N); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(N,i); ctx.stroke(); } ctx.restore(); }
+      function computeOutline(){ OUTLINE.fill(0); for (let y=0;y<N;y++){ for (let x=0;x<N;x++){ const idx=y*N+x; if (!MASK[idx]) continue; const nb = (x>0&&!MASK[idx-1])||(x<N-1&&!MASK[idx+1])||(y>0&&!MASK[idx-N])||(y<N-1&&!MASK[idx+N])|| (x>0&&y>0&&!MASK[idx-N-1])||(x<N-1&&y>0&&!MASK[idx-N+1])||(x>0&&y<N-1&&!MASK[idx+N-1])||(x<N-1&&y<N-1&&!MASK[idx+N+1]); if (nb) OUTLINE[idx]=1; } } }
+      function drawOutline(){ if (!drawOutlineFlag) return; computeOutline(); ctx.save(); for (let y=0;y<N;y++){ for (let x=0;x<N;x++){ if (OUTLINE[y*N+x]){ ctx.fillStyle = outlineColor; ctx.fillRect(x,y,1,1); if (symX){ const mx=N-1-x; ctx.fillRect(mx,y,1,1); } } } } ctx.restore(); }
+
+      function withPalette(main){ const p = PALETTES[paletteKey]; const base = main; const dark = darken(main, .25); const light = lighten(main, .2); const accent = p[(Math.floor(rng()*p.length))%p.length]; return { base, dark, light, accent }; }
+
+      function drawHeart(col){ const {base, dark, light}=withPalette(col); for (let y=0;y<N;y++){ for (let x=0;x<N;x++){ const X=(x-N*0.5)/(N*0.5)*1.3; const Y=(y-N*0.60)/(N*0.5)*1.3; const f=Math.pow(X*X+Y*Y-1,3)-X*X*Y*Y*Y; if (f<=0) px(x,y,(x+y)%3===0?light:base); } } for (let i=0;i<N;i++){ px(i,N-1,dark); } }
+      function drawCat(col){ const {base, light}=withPalette(col); fillCircle(N*0.5, N*0.60, N*0.34, base); fillTriangle(N*0.22,N*0.48, N*0.34,N*0.18, N*0.46,N*0.48, base); fillTriangle(N*0.54,N*0.48, N*0.66,N*0.18, N*0.78,N*0.48, base); fillTriangle(N*0.28,N*0.48, N*0.34,N*0.28, N*0.40,N*0.48, light); fillTriangle(N*0.60,N*0.48, N*0.66,N*0.28, N*0.72,N*0.48, light); fillEllipse(N*0.38, N*0.60, N*0.08, N*0.10, '#ffffff'); fillEllipse(N*0.62, N*0.60, N*0.08, N*0.10, '#ffffff'); fillEllipse(N*0.38, N*0.60, N*0.03, N*0.05, '#111'); fillEllipse(N*0.62, N*0.60, N*0.03, N*0.05, '#111'); fillTriangle(N*0.50,N*0.66, N*0.47,N*0.70, N*0.53,N*0.70, '#f28cb1'); for (let i=-1;i<=1;i++){ for (let dx=-4;dx<=-1;dx++) px(Math.round(N*0.50)+dx, Math.round(N*0.70)+i, '#111'); for (let dx=1;dx<=4;dx++) px(Math.round(N*0.50)+dx, Math.round(N*0.72)+i, '#111'); } }
+      function drawDog(col){ const {base, light}=withPalette(col); fillCircle(N*0.5, N*0.60, N*0.34, base); fillEllipse(N*0.34, N*0.40, N*0.12, N*0.16, base); fillEllipse(N*0.66, N*0.40, N*0.12, N*0.16, base); fillEllipse(N*0.50, N*0.68, N*0.20, N*0.14, light); fillEllipse(N*0.40, N*0.58, N*0.04, N*0.06, '#111'); fillEllipse(N*0.60, N*0.58, N*0.04, N*0.06, '#111'); fillCircle(N*0.50, N*0.70, N*0.04, '#111'); }
+      function drawRabbit(col){ const {base, light}=withPalette(col); fillEllipse(N*0.36, N*0.32, N*0.08, N*0.22, base); fillEllipse(N*0.64, N*0.32, N*0.08, N*0.22, base); fillCircle(N*0.5, N*0.62, N*0.30, base); fillEllipse(N*0.36, N*0.36, N*0.04, N*0.12, light); fillEllipse(N*0.64, N*0.36, N*0.04, N*0.12, light); fillCircle(N*0.60, N*0.60, N*0.04, '#111'); fillCircle(N*0.40, N*0.60, N*0.04, '#111'); fillRect(N*0.48, N*0.70, N*0.04, N*0.10, '#f28cb1'); }
+      function drawRobot(col){ const {base, light}=withPalette(col); fillRect(N*0.22,N*0.34,N*0.56,N*0.42, base); fillRect(N*0.30,N*0.42,N*0.12,N*0.12, '#fff'); fillRect(N*0.58,N*0.42,N*0.12,N*0.12, '#fff'); fillRect(N*0.34,N*0.46,N*0.04,N*0.04, '#000'); fillRect(N*0.62,N*0.46,N*0.04,N*0.04, '#000'); fillRect(N*0.36,N*0.60,N*0.28,N*0.05, '#222'); fillRect(N*0.49,N*0.24,N*0.02,N*0.08, '#000'); fillCircle(N*0.50,N*0.22,N*0.03, light); }
+      function drawTree(col){ const {base, light}=withPalette(col); fillEllipse(N*0.5, N*0.42, N*0.36, N*0.30, base); fillEllipse(N*0.36, N*0.36, N*0.22, N*0.18, light); fillEllipse(N*0.64, N*0.36, N*0.22, N*0.18, light); fillRect(N*0.46, N*0.60, N*0.08, N*0.28, '#8b5a2b'); }
+      function drawMountain(col){ const {base}=withPalette(col); fillTriangle(N*0.10,N*0.90, N*0.46,N*0.30, N*0.82,N*0.90, base); fillTriangle(N*0.55,N*0.90, N*0.72,N*0.44, N*0.92,N*0.90, darken(base,.25)); fillTriangle(N*0.42,N*0.44, N*0.46,N*0.30, N*0.50,N*0.44, '#fff'); fillTriangle(N*0.68,N*0.56, N*0.72,N*0.44, N*0.76,N*0.56, '#fff'); }
+      function drawHouse(col){ const {base}=withPalette(col); fillRect(N*0.24,N*0.50,N*0.52,N*0.34, base); fillTriangle(N*0.20,N*0.50, N*0.80,N*0.50, N*0.50,N*0.26, darken(base,.25)); fillRect(N*0.46,N*0.66,N*0.12,N*0.18, '#5d4037'); fillRect(N*0.30,N*0.58,N*0.12,N*0.12, '#90caf9'); fillRect(N*0.58,N*0.58,N*0.12,N*0.12, '#90caf9'); }
+      function drawStar(col){ const {base}=withPalette(col); const cx=N*0.5, cy=N*0.48, r1=N*0.38, r2=N*0.16; const pts=[]; for (let i=0;i<10;i++){ const a=-Math.PI/2+i*Math.PI/5; const r=i%2===0?r1:r2; pts.push([cx+r*Math.cos(a), cy+r*Math.sin(a)]); } for (let i=0;i<10;i++){ const a=pts[i], b=pts[(i+1)%10]; fillTriangle(cx,cy, a[0],a[1], b[0],b[1], base); } }
+      function drawSkull(col){ const bone=col; fillEllipse(N*0.5,N*0.50,N*0.36,N*0.32,bone); fillRect(N*0.34,N*0.68,N*0.32,N*0.10,bone); fillEllipse(N*0.40,N*0.50,N*0.09,N*0.10,'#000'); fillEllipse(N*0.60,N*0.50,N*0.09,N*0.10,'#000'); fillTriangle(N*0.50,N*0.60, N*0.46,N*0.66, N*0.54,N*0.66, '#000'); for (let i=0;i<4;i++){ fillRect(N*(0.36+0.08*i), N*0.74, N*0.06, N*0.06, '#000'); } }
+      function drawGhost(col){ const body=col; fillEllipse(N*0.5,N*0.46,N*0.36,N*0.30,body); fillRect(N*0.14,N*0.46,N*0.72,N*0.26,body); for (let i=0;i<3;i++){ fillCircle(N*(0.26+i*0.24), N*0.90, N*0.10, transparent?'#0000':'#ffffff'); } fillCircle(N*0.60,N*0.50,N*0.05,'#111'); fillCircle(N*0.40,N*0.50,N*0.05,'#111'); }
+      function drawBird(col){ const {base}=withPalette(col); fillEllipse(N*0.52, N*0.60, N*0.26, N*0.18, base); fillEllipse(N*0.44, N*0.58, N*0.14, N*0.12, darken(base,.2)); fillTriangle(N*0.70,N*0.60, N*0.82,N*0.56, N*0.70,N*0.52, '#ffb74d'); for (let i=0;i<2;i++){ fillRect(N*(0.42+i*0.06), N*0.78, N*0.03, N*0.10, '#5d4037'); } fillCircle(N*0.58, N*0.56, N*0.03, '#000'); }
+      function drawFish(col){ const {base}=withPalette(col); fillEllipse(N*0.46,N*0.60,N*0.28,N*0.16,base); fillTriangle(N*0.20,N*0.60, N*0.06,N*0.52, N*0.06,N*0.68, base); fillTriangle(N*0.46,N*0.50, N*0.34,N*0.60, N*0.46,N*0.60, darken(base,.2)); fillCircle(N*0.62,N*0.58,N*0.03,'#111'); }
+      function drawCar(col){ const {base}=withPalette(col); fillRect(N*0.18,N*0.60,N*0.64,N*0.18, base); fillRect(N*0.34,N*0.50,N*0.34,N*0.12, darken(base,.2)); fillRect(N*0.38,N*0.54,N*0.24,N*0.08, '#b3e5fc'); fillCircle(N*0.32,N*0.80,N*0.08,'#222'); fillCircle(N*0.68,N*0.80,N*0.08,'#222'); }
+      function drawShip(col){ const {base}=withPalette(col); fillTriangle(N*0.18,N*0.72, N*0.82,N*0.72, N*0.64,N*0.84, base); fillRect(N*0.54,N*0.30,N*0.03,N*0.44,'#5d4037'); fillTriangle(N*0.56,N*0.32, N*0.56,N*0.56, N*0.76,N*0.48, '#ffffff'); for (let i=0;i<3;i++){ fillEllipse(N*(0.20+i*0.22), N*0.92, N*0.12, N*0.06, '#90caf9'); } }
+      function drawMushroom(col){ const {base}=withPalette(col); fillEllipse(N*0.5,N*0.50,N*0.34,N*0.22, base); fillRect(N*0.44,N*0.62,N*0.12,N*0.22, '#f5deb3'); for (let i=0;i<4;i++){ fillCircle(N*(0.34+i*0.12), N*0.50, N*0.05, '#ffffff'); } }
+      function drawSword(col){ const blade=col; fillRect(N*0.48,N*0.22,N*0.04,N*0.46, blade); fillRect(N*0.46,N*0.22,N*0.02,N*0.46, lighten(blade,.25)); fillRect(N*0.40,N*0.56,N*0.20,N*0.06, '#8d6e63'); fillRect(N*0.48,N*0.62,N*0.04,N*0.18, '#5d4037'); fillCircle(N*0.50,N*0.82,N*0.04,'#3e2723'); }
+      function drawShield(col){ const {base}=withPalette(col); fillEllipse(N*0.5,N*0.52,N*0.28,N*0.36, base); fillEllipse(N*0.5,N*0.52,N*0.24,N*0.32, darken(base,.3)); fillRect(N*0.48,N*0.30,N*0.04,N*0.42, lighten(base,.25)); fillRect(N*0.36,N*0.48,N*0.28,N*0.04, lighten(base,.25)); }
+      function drawFlower(col){ const {base}=withPalette(col); const cx=N*0.5, cy=N*0.55; for (let i=0;i<6;i++){ const a=i*Math.PI/3; fillEllipse(cx+Math.cos(a)*N*0.18, cy+Math.sin(a)*N*0.12, N*0.14, N*0.10, base); } fillCircle(cx, cy, N*0.10, '#ffd166'); fillRect(N*0.48,N*0.60,N*0.04,N*0.26,'#2e7d32'); }
+      function drawCactus(col){ const {base}=withPalette(col); fillRect(N*0.48,N*0.38,N*0.08,N*0.34, base); fillRect(N*0.36,N*0.50,N*0.08,N*0.14, base); fillRect(N*0.58,N*0.50,N*0.08,N*0.14, base); fillRect(N*0.30,N*0.72,N*0.40,N*0.06,'#8d6e63'); }
+      function drawCloud(col){ const {base}=withPalette(col); fillEllipse(N*0.40,N*0.52,N*0.22,N*0.14, base); fillEllipse(N*0.54,N*0.50,N*0.24,N*0.16, base); fillEllipse(N*0.30,N*0.56,N*0.18,N*0.12, base); fillEllipse(N*0.66,N*0.56,N*0.20,N*0.12, base); }
+      function drawSun(col){ const {base}=withPalette(col); fillCircle(N*0.5,N*0.52,N*0.28, base); for (let i=0;i<8;i++){ const a=i*Math.PI/4; fillTriangle(N*0.5,N*0.52, N*0.5+Math.cos(a)*N*0.38, N*0.52+Math.sin(a)*N*0.38, N*0.5+Math.cos(a+0.22)*N*0.32, N*0.52+Math.sin(a+0.22)*N*0.32, base); } }
+      function drawMoon(col){ const {base}=withPalette(col); fillCircle(N*0.58,N*0.52,N*0.26, base); fillCircle(N*0.66,N*0.52,N*0.26, transparent?'#0000':bgColor); }
+      function drawSnowflake(col){ const {base}=withPalette(col); const cx=N*0.5, cy=N*0.52; for (let i=0;i<6;i++){ const a=i*Math.PI/3; const x2=cx+Math.cos(a)*N*0.30, y2=cy+Math.sin(a)*N*0.30; const steps=40; for (let t=0;t<=steps;t++){ const x=Math.round(cx+(x2-cx)*t/steps), y=Math.round(cy+(y2-cy)*t/steps); px(x,y,base); } } }
+      function drawSmiley(col){ const face=col; fillCircle(N*0.5,N*0.52,N*0.36, face); fillCircle(N*0.38,N*0.44,N*0.05,'#111'); fillCircle(N*0.62,N*0.44,N*0.05,'#111'); for (let x=0;x<N;x++){ const y=Math.round(N*0.64 + 0.10*Math.sin((x/N)*Math.PI)); px(x,y,'#111'); } }
+
+      const DRAW = { heart:drawHeart, cat:drawCat, dog:drawDog, rabbit:drawRabbit, robot:drawRobot, tree:drawTree, mountain:drawMountain, house:drawHouse, star:drawStar, skull:drawSkull, ghost:drawGhost, bird:drawBird, fish:drawFish, car:drawCar, ship:drawShip, mushroom:drawMushroom, sword:drawSword, shield:drawShield, flower:drawFlower, cactus:drawCactus, cloud:drawCloud, sun:drawSun, moon:drawMoon, snowflake:drawSnowflake, smiley:drawSmiley };
+
+      let hf = null;
+      let llm = null;
+      async function ensureLLM(modelKey){
+        if (modelKey!=='llm-ettin'){ llm = null; return; }
+        if (llm) return;
+        log('모델 로드 중...');
+        hf = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.0');
+        hf.env.allowRemoteModels = true;
+        const device = navigator.gpu? 'webgpu' : 'wasm';
+        const dtype = navigator.gpu? 'q4' : 'q8';
+        llm = await hf.pipeline('text-generation','onnx-community/ettin-decoder-150m-ONNX',{ device, dtype, progress_callback:e=>{ if (e?.status && e?.progress!=null) log(`모델 로드: ${Math.round(e.progress*100)}%`); } });
+        log('모델 준비 완료');
       }
-
-      function drawCat(col){
-        const fur = col, inner = lighten(col,.25), line = '#000000', eyeWhite = '#ffffff', eyeDark='#111';
-        fillCircle(N*0.5, N*0.58, N*0.32, fur);
-        fillTriangle(N*0.22,N*0.46, N*0.34,N*0.18, N*0.46,N*0.46, fur);
-        fillTriangle(N*0.54,N*0.46, N*0.66,N*0.18, N*0.78,N*0.46, fur);
-        fillTriangle(N*0.28,N*0.46, N*0.34,N*0.25, N*0.40,N*0.46, inner);
-        fillTriangle(N*0.60,N*0.46, N*0.66,N*0.25, N*0.72,N*0.46, inner);
-        fillEllipse(N*0.38, N*0.58, N*0.07, N*0.09, eyeWhite);
-        fillEllipse(N*0.62, N*0.58, N*0.07, N*0.09, eyeWhite);
-        fillEllipse(N*0.38, N*0.58, N*0.03, N*0.05, eyeDark);
-        fillEllipse(N*0.62, N*0.58, N*0.03, N*0.05, eyeDark);
-        fillTriangle(N*0.50,N*0.63, N*0.47,N*0.67, N*0.53,N*0.67, '#f28cb1');
-        fillRect(N*0.49, N*0.68, 1, 1, line);
-        for (let i=-1;i<=1;i++){
-          for (let dx=-4;dx<=-1;dx++) px(Math.round(N*0.50)+dx, Math.round(N*0.68)+i, line);
-          for (let dx=1;dx<=4;dx++) px(Math.round(N*0.50)+dx, Math.round(N*0.70)+i, line);
-        }
-        drawGridOverlay();
-      }
-
-      function drawRobot(col){
-        const body = col, dark = darken(col,.2), light = lighten(col,.15), line='#000';
-        fillRect(N*0.22, N*0.30, N*0.56, N*0.42, body);
-        fillRect(N*0.22, N*0.70, N*0.56, N*0.12, dark);
-        fillRect(N*0.30, N*0.38, N*0.12, N*0.12, '#ffffff');
-        fillRect(N*0.58, N*0.38, N*0.12, N*0.12, '#ffffff');
-        fillRect(N*0.34, N*0.42, N*0.04, N*0.04, '#000000');
-        fillRect(N*0.62, N*0.42, N*0.04, N*0.04, '#000000');
-        fillRect(N*0.36, N*0.56, N*0.28, N*0.04, '#222');
-        fillRect(N*0.48, N*0.22, N*0.04, N*0.08, line);
-        fillCircle(N*0.50, N*0.20, N*0.03, light);
-        drawGridOverlay();
-      }
-
-      function drawTree(col){
-        const leaves = col, trunk='#8b5a2b', light=lighten(col,.2);
-        fillEllipse(N*0.5, N*0.40, N*0.36, N*0.30, leaves);
-        fillEllipse(N*0.36, N*0.34, N*0.22, N*0.18, light);
-        fillEllipse(N*0.64, N*0.34, N*0.22, N*0.18, light);
-        fillRect(N*0.45, N*0.56, N*0.10, N*0.30, trunk);
-        drawGridOverlay();
-      }
-
-      function drawMountain(col){
-        const rock = col, snow='#ffffff', deep=darken(col,.25);
-        fillTriangle(N*0.10,N*0.88, N*0.46,N*0.30, N*0.82,N*0.88, rock);
-        fillTriangle(N*0.55,N*0.88, N*0.72,N*0.44, N*0.92,N*0.88, deep);
-        fillTriangle(N*0.42,N*0.44, N*0.46,N*0.30, N*0.50,N*0.44, snow);
-        fillTriangle(N*0.68,N*0.56, N*0.72,N*0.44, N*0.76,N*0.56, snow);
-        drawGridOverlay();
-      }
-
-      function drawHouse(col){
-        const body=col, roof=darken(col,.25), door='#5d4037', window='#90caf9';
-        fillRect(N*0.24, N*0.48, N*0.52, N*0.36, body);
-        fillTriangle(N*0.20,N*0.48, N*0.80,N*0.48, N*0.50,N*0.26, roof);
-        fillRect(N*0.46, N*0.64, N*0.12, N*0.20, door);
-        fillRect(N*0.30, N*0.56, N*0.12, N*0.12, window);
-        fillRect(N*0.58, N*0.56, N*0.12, N*0.12, window);
-        drawGridOverlay();
-      }
-
-      function drawStar(col){
-        const main=col;
-        const cx=N*0.5, cy=N*0.48, r1=N*0.38, r2=N*0.16;
-        const pts=[];
-        for (let i=0;i<10;i++){
-          const a = -Math.PI/2 + i * Math.PI/5;
-          const r = i%2===0 ? r1 : r2;
-          pts.push([cx + r*Math.cos(a), cy + r*Math.sin(a)]);
-        }
-        for (let i=0;i<10;i++){
-          const a = pts[i], b = pts[(i+1)%10];
-          fillTriangle(cx,cy, a[0],a[1], b[0],b[1], main);
-        }
-        drawGridOverlay();
-      }
-
-      function drawSkull(col){
-        const bone=col, hole='#000';
-        fillEllipse(N*0.5, N*0.50, N*0.36, N*0.32, bone);
-        fillRect(N*0.34, N*0.66, N*0.32, N*0.10, bone);
-        fillEllipse(N*0.40, N*0.50, N*0.09, N*0.10, hole);
-        fillEllipse(N*0.60, N*0.50, N*0.09, N*0.10, hole);
-        fillTriangle(N*0.50,N*0.58, N*0.46,N*0.64, N*0.54,N*0.64, hole);
-        for (let i=0;i<4;i++){ fillRect(N*(0.36+0.08*i), N*0.72, N*0.06, N*0.06, hole); }
-        drawGridOverlay();
-      }
-
-      function drawGhost(col){
-        const body=col, eye='#111', bg='#ffffff';
-        fillEllipse(N*0.5, N*0.46, N*0.36, N*0.30, body);
-        fillRect(N*0.14, N*0.46, N*0.72, N*0.24, body);
-        for (let i=0;i<3;i++){
-          const cx = N*(0.26+ i*0.24);
-          fillCircle(cx, N*0.86, N*0.10, bg);
-        }
-        fillCircle(N*0.40, N*0.50, N*0.05, eye);
-        fillCircle(N*0.60, N*0.50, N*0.05, eye);
-        drawGridOverlay();
-      }
-
-      function drawBird(col){
-        const body=col, wing=darken(col,.2), beak='#ffb74d', leg='#5d4037', eye='#000';
-        fillEllipse(N*0.52, N*0.58, N*0.26, N*0.18, body);
-        fillEllipse(N*0.44, N*0.56, N*0.14, N*0.12, wing);
-        fillTriangle(N*0.70,N*0.60, N*0.82,N*0.56, N*0.70,N*0.52, beak);
-        for (let i=0;i<2;i++){ fillRect(N*(0.42+i*0.06), N*0.74, N*0.03, N*0.10, leg); }
-        fillCircle(N*0.58, N*0.54, N*0.03, eye);
-        drawGridOverlay();
-      }
-
-      function drawFish(col){
-        const body=col, fin=darken(col,.2), eye='#111';
-        fillEllipse(N*0.46, N*0.58, N*0.28, N*0.16, body);
-        fillTriangle(N*0.20,N*0.58, N*0.06,N*0.50, N*0.06,N*0.66, body);
-        fillTriangle(N*0.46,N*0.48, N*0.34,N*0.58, N*0.46,N*0.58, fin);
-        fillCircle(N*0.62, N*0.56, N*0.03, eye);
-        drawGridOverlay();
-      }
-
-      function drawCar(col){
-        const body=col, dark=darken(col,.2), window='#b3e5fc', wheel='#222';
-        fillRect(N*0.18, N*0.58, N*0.64, N*0.18, body);
-        fillRect(N*0.34, N*0.48, N*0.34, N*0.12, dark);
-        fillRect(N*0.38, N*0.52, N*0.24, N*0.08, window);
-        fillCircle(N*0.32, N*0.78, N*0.08, wheel);
-        fillCircle(N*0.68, N*0.78, N*0.08, wheel);
-        drawGridOverlay();
-      }
-
-      function drawShip(col){
-        const hull=col, mast='#5d4037', sail='#ffffff', wave='#90caf9';
-        fillTriangle(N*0.18,N*0.70, N*0.82,N*0.70, N*0.64,N*0.82, hull);
-        fillRect(N*0.54, N*0.30, N*0.03, N*0.40, mast);
-        fillTriangle(N*0.56,N*0.32, N*0.56,N*0.54, N*0.76,N*0.46, sail);
-        for (let i=0;i<3;i++){ fillEllipse(N*(0.20+i*0.22), N*0.88, N*0.12, N*0.06, wave); }
-        drawGridOverlay();
-      }
-
-      function drawMushroom(col){
-        const cap=col, stem='#f5deb3', spot='#ffffff';
-        fillEllipse(N*0.5, N*0.46, N*0.34, N*0.22, cap);
-        fillRect(N*0.42, N*0.58, N*0.16, N*0.22, stem);
-        for (let i=0;i<4;i++){ fillCircle(N*(0.34+ i*0.12), N*0.46, N*0.05, spot); }
-        drawGridOverlay();
-      }
-
-      function drawSword(col){
-        const blade=col, edge=lighten(col,.25), guard='#8d6e63', handle='#5d4037', pommel='#3e2723';
-        fillRect(N*0.48, N*0.22, N*0.04, N*0.44, blade);
-        fillRect(N*0.46, N*0.22, N*0.02, N*0.44, edge);
-        fillRect(N*0.40, N*0.56, N*0.20, N*0.06, guard);
-        fillRect(N*0.48, N*0.62, N*0.04, N*0.18, handle);
-        fillCircle(N*0.50, N*0.82, N*0.04, pommel);
-        drawGridOverlay();
-      }
-
-      function drawShield(col){
-        const base=col, border=darken(col,.3), emblem=lighten(col,.25);
-        fillEllipse(N*0.5, N*0.50, N*0.28, N*0.36, base);
-        for (let t=0;t<2;t++) fillEllipse(N*0.5, N*0.50, N*0.28 - t*0.8, N*0.36 - t*0.8, border);
-        fillRect(N*0.48, N*0.30, N*0.04, N*0.40, emblem);
-        fillRect(N*0.36, N*0.46, N*0.28, N*0.04, emblem);
-        drawGridOverlay();
-      }
-
-      function drawSmiley(col){
-        const face=col, eye='#111', mouth='#111', light=lighten(col,.25);
-        fillCircle(N*0.5, N*0.5, N*0.36, face);
-        fillCircle(N*0.62, N*0.46, N*0.05, eye);
-        fillCircle(N*0.38, N*0.46, N*0.05, eye);
-        for (let x=0;x<N;x++){
-          const y = Math.round(N*0.60 + 0.10*Math.sin((x/N)*Math.PI));
-          px(x,y,mouth);
-        }
-        fillCircle(N*0.36, N*0.38, N*0.08, light);
-        drawGridOverlay();
-      }
-
-      const DRAWERS = {
-        heart: drawHeart, cat: drawCat, robot: drawRobot, tree: drawTree, mountain: drawMountain,
-        house: drawHouse, star: drawStar, skull: drawSkull, ghost: drawGhost, bird: drawBird,
-        fish: drawFish, car: drawCar, ship: drawShip, mushroom: drawMushroom, sword: drawSword,
-        shield: drawShield, smiley: drawSmiley
-      };
-
-      // ======= pipeline =======
-      function setStatus(t){ $('#log').textContent = t; }
-      function appendStatus(t){ $('#log').textContent += ( $('#log').textContent ? '\n' : '' ) + t; }
-
-      async function plan(text, modelId){
-        const kwCat = keywordCategorize(text);
-        const primary = colorFromText(text, DEFAULTS[kwCat] || '#999');
-        if (modelId==='none') return { category: kwCat, primary };
-        try{
-          await ensureLLM(modelId);
-          setStatus('LLM 분류 중...');
-          const res = await llmCategorize(text);
-          if (!res) return { category: kwCat, primary };
-          const cat = (res.category||'').toLowerCase();
-          const col = res.primary && /^#([0-9a-fA-F]{6})$/.test(res.primary) ? res.primary : primary;
-          if (!DRAWERS[cat]) return { category: kwCat, primary: col };
-          return { category: cat, primary: col };
-        }catch{
-          return { category: kwCat, primary };
-        }
-      }
+      function extractJSON(text){ const code=/```(?:json)?\s*([\s\S]*?)```/i.exec(text); const body=code?code[1]:(text.match(/\{[\s\S]*\}/)||[''])[0]; let s=(body||'').trim(); s=s.replace(/(\w+)\s*:/g,'"$1":'); s=s.replace(/'/g,'"'); s=s.replace(/,(\s*[}\]])/g,'$1'); return JSON.parse(s); }
+      function normalizeTemplate(t, size){ const s=Math.max(4,Math.min(32, t?.size||size)); let data=t?.data||[]; if (!Array.isArray(data)) data=[]; data=data.slice(0,s).map(r=> typeof r==='string'? r.replace(/\s/g,'').split('').slice(0,s): Array.isArray(r)? r.slice(0,s).map(String): []); while (data.length<s) data.push(Array(s).fill('0')); data=data.map(r=> r.length<s? r.concat(Array(s-r.length).fill('0')): r); const pal = Object.fromEntries(Object.entries(t?.palette||{}).map(([k,v])=>[String(k),String(v)])); return { size:s, palette:pal, data }; }
+      function drawTemplate(tpl){ clearAll(); const s=tpl.size; for (let y=0;y<s;y++){ const row=tpl.data[y]; for (let x=0;x<s;x++){ const code = String(row[x]); if (code==='0'||code==='.'||code===' ') continue; const color = tpl.palette[code] || '#000000'; const ix = Math.floor(x/s*N), iy = Math.floor(y/s*N); px(ix,iy,color); } } }
 
       async function generate(){
-        if (busy) return;
-        const text = $('#prompt').value.trim();
-        const modelId = $('#model').value;
-        const targetN = parseInt($('#size').value, 10) || 16;
-        if (!text) return;
-        busy = true;
-        setStatus('준비 중...');
-        setGrid(targetN);
-        try{
-          const { category, primary } = await plan(text, modelId);
-          clearCanvas();
-          const draw = DRAWERS[category] || DRAWERS.heart;
-          draw(primary);
-          setStatus(`완료: ${category} (${primary})  • ${targetN}×${targetN}`);
-        }catch(e){
-          console.error(e);
-          setStatus('실패: 폴백 하트');
-          clearCanvas();
-          drawHeart('#e53935');
-        }finally{
-          busy = false;
+        $('#generate').disabled = true; $('#remix').disabled = true;
+        const text = $('#prompt').value.trim(); if (!text) { $('#generate').disabled = false; $('#remix').disabled = false; return; }
+        paletteKey = $('#palette').value;
+        styleMode = $('#style').value;
+        symX = $('#symx').checked;
+        drawGrid = $('#grid').checked;
+        drawOutlineFlag = $('#outline').checked;
+        transparent = $('#transparent').checked;
+        bgColor = $('#bg').value;
+        setSize(parseInt($('#size').value,10)||24);
+        setSeedFromInputs();
+        clearAll();
+        const model = $('#gen').value;
+        if (model==='llm-ettin'){
+          try{
+            await ensureLLM(model);
+            const target = N<=16?16:(N<=24?24:32);
+            const prompt = `Output only JSON for ${target}x${target} pixelart of "${text}". Keys: {"size":${target},"palette":{"1":"#RRGGBB"...},"data":["..."]}. Use 0 for transparent. No extra text.`;
+            log('LLM 생성 중...');
+            const out = await llm(prompt,{ max_new_tokens:220, do_sample:false });
+            const raw = String(out?.[0]?.generated_text||'').trim();
+            const json = extractJSON(raw);
+            const tpl = normalizeTemplate(json, target);
+            drawTemplate(tpl);
+            drawOutline();
+            applyBackground();
+            drawGridOverlay();
+            log('완료(LLM)');
+          }catch(e){
+            console.error(e);
+            log('LLM 실패 → 규칙 기반으로 생성합니다.');
+            await generateRule(text);
+          }
+        } else {
+          await generateRule(text);
         }
+        $('#generate').disabled = false; $('#remix').disabled = false;
       }
 
-      // ======= UI events =======
-      $('#generate').addEventListener('click', generate);
-      $('#prompt').addEventListener('keydown', e => { if (e.key==='Enter') generate(); });
-      $('#size').addEventListener('change', ()=>{ setGrid(parseInt($('#size').value,10)||16); });
-      $('#gridToggle').addEventListener('change', ()=>{ const n=N; clearCanvas(); setGrid(n); });
-      $('#download').addEventListener('click', ()=>{
-        const a = document.createElement('a');
-        a.download = 'pixel-art.png';
-        a.href = canvas.toDataURL('image/png');
-        a.click();
-      });
-      $('#clear').addEventListener('click', ()=>{ clearCanvas(); setStatus('캔버스 초기화'); });
+      async function generateRule(text){
+        const cat = categorize(text);
+        const primary = primaryFromText(text, ({heart:'#e53935',cat:'#f6b26b',dog:'#c6a27e',rabbit:'#ddd5e9',robot:'#9aa0a6',tree:'#2ecc71',mountain:'#8d99ae',house:'#ff8c42',star:'#ffd700',skull:'#eaeaea',ghost:'#eaf2ff',bird:'#4fc3f7',fish:'#00bcd4',car:'#e91e63',ship:'#6c757d',mushroom:'#d32f2f',sword:'#b0bec5',shield:'#607d8b',flower:'#ff66b3',cactus:'#2e7d32',cloud:'#cfe3ff',sun:'#ffd166',moon:'#cfd8dc',snowflake:'#b3e5fc',smiley:'#ffeb3b'})[cat]||'#999999');
+        const draw = DRAW[cat] || DRAW.heart;
+        draw(primary);
+        drawOutline();
+        applyBackground();
+        drawGridOverlay();
+        log(`완료: ${cat}`);
+      }
 
-      // init
-      setGrid(16);
-      setStatus('텍스트를 입력하고 Generate를 눌러보세요.');
+      $('#generate').addEventListener('click', generate);
+      $('#remix').addEventListener('click', ()=>{ $('#seed').value = (parseInt($('#seed').value||'0',10)+1)%1000000; generate(); });
+      $('#download').addEventListener('click', ()=>{
+        const a=document.createElement('a'); a.download='pixel-art.png'; a.href=cv.toDataURL('image/png'); a.click();
+      });
+      $('#transparent').addEventListener('change', ()=>{ generate(); });
+      $('#bg').addEventListener('input', ()=>{ if (!$('#transparent').checked) generate(); });
+      $('#prompt').addEventListener('keydown', (e)=>{ if (e.key==='Enter') generate(); });
+
+      setSize(24);
+      log('텍스트를 입력하고 Generate를 눌러보세요.');
     </script>
   </body>
 </html>
