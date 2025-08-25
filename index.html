@@ -55,7 +55,12 @@
   </div>
 
     <script type="module">
-      import { pipeline } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.6.1/dist/transformers.min.js";
+      // Use a recent version of Transformers.js that supports `text-to-image`.
+      // Earlier releases (e.g. 2.6.1) did not include this pipeline and
+      // resulted in "Unsupported pipeline" errors. The latest version
+      // available on the CDN is loaded by omitting the explicit version
+      // number.
+      import { pipeline } from "https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/transformers.min.js";
 
       const log = document.getElementById('log');
       const canvas = document.getElementById('result');
