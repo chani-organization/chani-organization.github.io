@@ -2,285 +2,516 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
-    <title>Pixel Art Generator</title>
-    <link rel="icon" href="favicon.ico" />
+    <title>Pixel Art Generator – semantic</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
-      :root { --size: 32; --display-size: 256px; }
+      :root { --display-size: 256px; }
       * { box-sizing: border-box; }
       body {
         margin: 0;
         height: 100vh;
         display: grid;
         place-items: center;
+        background: #f6f7f9;
         font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-        background: #f7f7f7;
       }
       #app { text-align: center; padding: 1rem; }
-      #controls { display: flex; gap: .5rem; justify-content: center; flex-wrap: wrap; margin-bottom: 1rem; }
-      #prompt, select, button {
-        font-size: 1rem; padding: .55rem .7rem; border: 1px solid #c9c9c9; border-radius: .4rem; background: #fff;
+      #controls { display: flex; gap: .5rem; justify-content: center; flex-wrap: wrap; margin-bottom: .75rem; }
+      input, select, button {
+        font-size: 1rem; padding: .55rem .7rem; border: 1px solid #c9c9c9; border-radius: .45rem; background: #fff;
       }
       button { cursor: pointer; }
       #result {
-        margin: .75rem auto 0;
         width: var(--display-size);
         height: var(--display-size);
         image-rendering: pixelated;
-        border: 1px solid #d0d0d0;
+        border: 1px solid #dadde3;
         background: #fff;
+        margin: .5rem auto 0;
       }
-      #log { margin-top: .5rem; font-size: .9rem; color: #555; white-space: pre-wrap; }
       #row { display: flex; gap: .5rem; justify-content: center; flex-wrap: wrap; margin-top: .5rem; }
+      #log { margin-top: .5rem; font-size: .9rem; color: #4b5563; white-space: pre-wrap; min-height: 1.5em; }
     </style>
   </head>
   <body>
     <div id="app">
       <div id="controls">
-        <input id="prompt" type="text" placeholder="예: 고양이, 로봇, 산" />
+        <input id="prompt" type="text" placeholder="예: 빨간 하트, 귀여운 고양이, 파란 로봇" />
         <select id="size">
           <option value="8">8×8</option>
           <option value="16" selected>16×16</option>
+          <option value="24">24×24</option>
           <option value="32">32×32</option>
         </select>
         <select id="model">
-          <option value="onnx-community/LFM2-350M-ONNX" selected>LFM2-350M (권장)</option>
-          <option value="onnx-community/ettin-decoder-150m-ONNX">Ettin-Decoder-150M (초경량)</option>
+          <option value="none" selected>사전 매핑만(가벼움)</option>
+          <option value="onnx-community/ettin-decoder-150m-ONNX">Ettin-Decoder-150M(초경량 LLM)</option>
+          <option value="onnx-community/LFM2-350M-ONNX">LFM2-350M(정확성↑)</option>
         </select>
         <button id="generate">Generate</button>
       </div>
-      <canvas id="result" width="32" height="32"></canvas>
+      <canvas id="result" width="16" height="16"></canvas>
       <div id="row">
         <button id="download">PNG 다운로드</button>
         <button id="clear">지우기</button>
+        <label style="display:inline-flex;align-items:center;gap:.35rem">
+          <input id="gridToggle" type="checkbox" /> 그리드
+        </label>
       </div>
       <div id="log"></div>
     </div>
 
     <script type="module">
-      import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.0';
-
       const $ = (q) => document.querySelector(q);
-      const logEl = $('#log');
       const canvas = $('#result');
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
       ctx.imageSmoothingEnabled = false;
 
-      const defaultPalette = {
-        '1': '#000000','2': '#ffffff','3': '#ff4d4d','4': '#ffa64d',
-        '5': '#ffe14d','6': '#4dff88','7': '#4dd2ff','8': '#7a7aff',
-        '9': '#b84dff','A': '#8b5a2b','B': '#708090','C': '#c0c0c0'
-      };
-
-      let generator = null;
-      let currentModel = null;
       let busy = false;
+      let generator = null;
+      let currentModel = 'none';
 
-      const hasWebGPU = !!navigator.gpu;
-      const device = hasWebGPU ? 'webgpu' : 'wasm';
-      const dtypeWebGPU = 'q4';
-      const dtypeWASM = 'q8';
-
-      env.allowRemoteModels = true;
-
-      function setStatus(t) {
-        logEl.textContent = t;
+      // ======= color utils =======
+      const NAMED = {
+        red:'#e74c3c', blue:'#1e90ff', green:'#2ecc71', yellow:'#ffd90f', orange:'#ff8c42', pink:'#ff66b3',
+        purple:'#9b59b6', brown:'#8e5a3c', black:'#000000', white:'#ffffff', gray:'#9aa0a6', grey:'#9aa0a6',
+        cyan:'#00bcd4', teal:'#20c997', gold:'#ffd700', silver:'#c0c0c0',
+        빨강:'#e74c3c', 빨간:'#e74c3c', 파랑:'#1e90ff', 파란:'#1e90ff', 초록:'#2ecc71', 녹색:'#2ecc71',
+        노랑:'#ffd90f', 주황:'#ff8c42', 분홍:'#ff66b3', 보라:'#9b59b6', 갈색:'#8e5a3c', 검정:'#000000',
+        하양:'#ffffff', 흰색:'#ffffff', 회색:'#9aa0a6', 하늘:'#87ceeb', 청록:'#20c997', 금색:'#ffd700', 은색:'#c0c0c0'
+      };
+      function clamp01(t){ return Math.max(0, Math.min(1, t)); }
+      function hexToRgb(hex){
+        const c = hex.replace('#','');
+        const n = parseInt(c.length===3 ? c.split('').map(ch=>ch+ch).join('') : c, 16);
+        return { r:(n>>16)&255, g:(n>>8)&255, b:n&255 };
+      }
+      function rgbToHex({r,g,b}){
+        const to = (v)=>v.toString(16).padStart(2,'0');
+        return '#'+to(r)+to(g)+to(b);
+      }
+      function lighten(hex, amt=0.2){
+        const {r,g,b} = hexToRgb(hex);
+        return rgbToHex({ r:Math.round(r+(255-r)*amt), g:Math.round(g+(255-g)*amt), b:Math.round(b+(255-b)*amt) });
+      }
+      function darken(hex, amt=0.2){
+        const {r,g,b} = hexToRgb(hex);
+        return rgbToHex({ r:Math.round(r*(1-amt)), g:Math.round(g*(1-amt)), b:Math.round(b*(1-amt)) });
+      }
+      function colorFromText(text, fallback){
+        for (const [k,v] of Object.entries(NAMED)){
+          if (text.includes(k)) return v;
+        }
+        const hex = text.match(/#([0-9a-fA-F]{6})/);
+        if (hex) return '#'+hex[1];
+        return fallback;
       }
 
-      function appendStatus(t) {
-        logEl.textContent = (logEl.textContent ? logEl.textContent + '\n' : '') + t;
+      // ======= categories & defaults =======
+      const DEFAULTS = {
+        heart:'#e53935', cat:'#f6b26b', robot:'#9aa0a6', tree:'#4caf50', mountain:'#8d99ae', house:'#d35400',
+        star:'#ffd700', skull:'#eeeeee', ghost:'#eef1ff', bird:'#4fc3f7', fish:'#00bcd4', car:'#e91e63',
+        ship:'#6c757d', mushroom:'#d32f2f', sword:'#b0bec5', shield:'#607d8b', smiley:'#ffeb3b'
+      };
+      const CATS = [
+        {key:'heart', words:['heart','하트','심장','사랑']},
+        {key:'cat', words:['cat','고양','냥','야옹']},
+        {key:'robot', words:['robot','로봇','봇','안드로이드']},
+        {key:'tree', words:['tree','나무','소나무','침엽','참나무']},
+        {key:'mountain', words:['mountain','산','봉우리','peak','정상']},
+        {key:'house', words:['house','집','주택','home','홈']},
+        {key:'star', words:['star','별','별표','스타']},
+        {key:'skull', words:['skull','해골','두개골','스컬']},
+        {key:'ghost', words:['ghost','유령','고스트','귀신']},
+        {key:'bird', words:['bird','새','참새','비둘기','독수리']},
+        {key:'fish', words:['fish','물고기','피쉬','고기']},
+        {key:'car', words:['car','자동차','차','카']},
+        {key:'ship', words:['ship','배','보트','선박','요트']},
+        {key:'mushroom', words:['mushroom','버섯','머쉬룸']},
+        {key:'sword', words:['sword','검','소드','칼']},
+        {key:'shield', words:['shield','방패','실드']},
+        {key:'smiley', words:['smile','스마일','웃는','웃음','이모지','emoji']},
+      ];
+      function keywordCategorize(text){
+        const t = text.toLowerCase();
+        let best = {key:null, score:0};
+        for (const c of CATS){
+          let s = 0;
+          for (const w of c.words){
+            if (t.includes(w.toLowerCase())) s += w.length;
+          }
+          if (s > best.score) best = {key:c.key, score:s};
+        }
+        return best.key || 'heart';
       }
 
-      async function ensureGenerator(modelId) {
+      // ======= minimal LLM assist (optional) =======
+      async function ensureLLM(modelId){
+        if (modelId === 'none') { generator = null; currentModel = 'none'; return; }
         if (generator && currentModel === modelId) return;
-        setStatus(`모델 로드 중 (${device})...`);
         currentModel = modelId;
-        generator = await pipeline(
-          'text-generation',
-          modelId,
-          {
-            device,
-            dtype: hasWebGPU ? dtypeWebGPU : dtypeWASM,
-            progress_callback: (e) => {
-              if (!e) return;
-              if (e.status && e.progress != null) {
-                setStatus(`모델 로드: ${e.status} ${Math.round(e.progress * 100)}%`);
-              } else if (e.file) {
-                appendStatus(`다운로드: ${e.file}`);
-              }
+        const hasWebGPU = !!navigator.gpu;
+        const device = hasWebGPU ? 'webgpu' : 'wasm';
+        const dtype = hasWebGPU ? 'q4' : 'q8';
+        const { pipeline, env } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.0');
+        env.allowRemoteModels = true;
+        generator = await pipeline('text-generation', modelId, { device, dtype });
+      }
+      async function llmCategorize(text){
+        if (!generator) return null;
+        const list = CATS.map(c=>c.key).join(', ');
+        const prompt = `You are a classifier. From [${list}], choose the single best category for: "${text}". Reply as JSON like {"category":"heart","primary":"#RRGGBB"}. If a color is mentioned, include it as hex (#RRGGBB), else leave default. JSON only.`;
+        try{
+          const out = await generator(prompt, { max_new_tokens: 60, do_sample: false });
+          const raw = String(out?.[0]?.generated_text || '').trim();
+          const match = raw.match(/\{[\s\S]*\}/);
+          if (!match) return null;
+          const obj = JSON.parse(match[0]);
+          if (!obj || !obj.category) return null;
+          return obj;
+        }catch(e){ return null; }
+      }
+
+      // ======= pixel primitives on N×N grid =======
+      let N = 16;
+      function setGrid(n){
+        N = n;
+        canvas.width = n;
+        canvas.height = n;
+        drawGridOverlay();
+      }
+      function clearCanvas(){
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        drawGridOverlay();
+      }
+      function px(x,y,color){
+        if (x<0||y<0||x>=N||y>=N) return;
+        ctx.fillStyle = color;
+        ctx.fillRect(x, y, 1, 1);
+      }
+      function fillRect(x,y,w,h,color){
+        const x0 = Math.max(0, Math.floor(x)), y0 = Math.max(0, Math.floor(y));
+        const x1 = Math.min(N, Math.ceil(x+w)), y1 = Math.min(N, Math.ceil(y+h));
+        ctx.fillStyle = color;
+        ctx.fillRect(x0, y0, Math.max(0,x1-x0), Math.max(0,y1-y0));
+      }
+      function fillCircle(cx, cy, r, color){
+        const r2 = r*r;
+        for (let y=0; y<N; y++){
+          for (let x=0; x<N; x++){
+            const dx = (x+0.5)-cx, dy=(y+0.5)-cy;
+            if (dx*dx + dy*dy <= r2) px(x,y,color);
+          }
+        }
+      }
+      function fillEllipse(cx, cy, rx, ry, color){
+        for (let y=0; y<N; y++){
+          for (let x=0; x<N; x++){
+            const dx = (x+0.5 - cx)/rx, dy=(y+0.5 - cy)/ry;
+            if (dx*dx + dy*dy <= 1) px(x,y,color);
+          }
+        }
+      }
+      function insideTri(px_,py_, ax,ay,bx,by,cx,cy){
+        const s = (x1,y1,x2,y2,x3,y3)=> (x1-x3)*(y2-y3) - (x2-x3)*(y1-y3);
+        const a = s(px_,py_, ax,ay, bx,by, cx,cy);
+        const b = s(ax,ay, px_,py_, bx,by, cx,cy);
+        const c = s(ax,ay, bx,by, px_,py_, cx,cy);
+        const hasNeg = (a<0)||(b<0)||(c<0), hasPos = (a>0)||(b>0)||(c>0);
+        return !(hasNeg && hasPos);
+      }
+      function fillTriangle(ax,ay,bx,by,cx,cy,color){
+        const minX = Math.max(0, Math.floor(Math.min(ax,bx,cx)));
+        const maxX = Math.min(N-1, Math.ceil(Math.max(ax,bx,cx)));
+        const minY = Math.max(0, Math.floor(Math.min(ay,by,cy)));
+        const maxY = Math.min(N-1, Math.ceil(Math.max(ay,by,cy)));
+        for (let y=minY; y<=maxY; y++){
+          for (let x=minX; x<=maxX; x++){
+            if (insideTri(x+0.5,y+0.5, ax,ay,bx,by,cx,cy)) px(x,y,color);
+          }
+        }
+      }
+      function drawGridOverlay(){
+        if (!$('#gridToggle').checked) return;
+        ctx.save();
+        ctx.globalAlpha = 0.25;
+        ctx.strokeStyle = '#dcdfe6';
+        ctx.lineWidth = 0.02;
+        for (let i=1;i<N;i++){
+          ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,N); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(N,i); ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      // ======= shapes =======
+      function drawHeart(col){
+        const main = col, dark = darken(col,.25), light = lighten(col,.25);
+        for (let y=0; y<N; y++){
+          for (let x=0; x<N; x++){
+            const X = (x - N*0.5) / (N*0.5) * 1.3;
+            const Y = (y - N*0.60) / (N*0.5) * 1.3;
+            const f = Math.pow(X*X+Y*Y-1,3) - X*X*Y*Y*Y;
+            if (f <= 0){
+              const w = (x+y) % 3 === 0 ? light : main;
+              px(x,y,w);
             }
           }
-        );
-        appendStatus('모델 준비 완료');
+        }
+        for (let i=0;i<N;i++){ px(i, N-1, dark); }
+        drawGridOverlay();
       }
 
-      function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
-
-      function extractJSON(text) {
-        const codeBlock = /```(?:json)?\s*([\s\S]*?)\s*```/i.exec(text);
-        const body = codeBlock ? codeBlock[1] : (function() {
-          const m = text.match(/\{[\s\S]*\}/);
-          return m ? m[0] : text;
-        })();
-        let s = body.trim();
-        // Simple repairs
-        s = s.replace(/(\r?\n)+/g, '\n');
-        s = s.replace(/(\w+)\s*:/g, '"$1":'); // quote keys
-        s = s.replace(/'/g, '"'); // single -> double
-        s = s.replace(/,(\s*[}\]])/g, '$1'); // trailing commas
-        return JSON.parse(s);
+      function drawCat(col){
+        const fur = col, inner = lighten(col,.25), line = '#000000', eyeWhite = '#ffffff', eyeDark='#111';
+        fillCircle(N*0.5, N*0.58, N*0.32, fur);
+        fillTriangle(N*0.22,N*0.46, N*0.34,N*0.18, N*0.46,N*0.46, fur);
+        fillTriangle(N*0.54,N*0.46, N*0.66,N*0.18, N*0.78,N*0.46, fur);
+        fillTriangle(N*0.28,N*0.46, N*0.34,N*0.25, N*0.40,N*0.46, inner);
+        fillTriangle(N*0.60,N*0.46, N*0.66,N*0.25, N*0.72,N*0.46, inner);
+        fillEllipse(N*0.38, N*0.58, N*0.07, N*0.09, eyeWhite);
+        fillEllipse(N*0.62, N*0.58, N*0.07, N*0.09, eyeWhite);
+        fillEllipse(N*0.38, N*0.58, N*0.03, N*0.05, eyeDark);
+        fillEllipse(N*0.62, N*0.58, N*0.03, N*0.05, eyeDark);
+        fillTriangle(N*0.50,N*0.63, N*0.47,N*0.67, N*0.53,N*0.67, '#f28cb1');
+        fillRect(N*0.49, N*0.68, 1, 1, line);
+        for (let i=-1;i<=1;i++){
+          for (let dx=-4;dx<=-1;dx++) px(Math.round(N*0.50)+dx, Math.round(N*0.68)+i, line);
+          for (let dx=1;dx<=4;dx++) px(Math.round(N*0.50)+dx, Math.round(N*0.70)+i, line);
+        }
+        drawGridOverlay();
       }
 
-      function normalizeTemplate(t, targetSize) {
-        const size = clamp((t && t.size) || targetSize, 4, 32);
-        const palette = Object.fromEntries(
-          Object.entries({ ...defaultPalette, ...(t && t.palette || {}) })
-          .map(([k, v]) => [String(k), String(v)])
-        );
-        let data = t && t.data ? t.data : [];
-        if (!Array.isArray(data)) data = [];
-        data = data.slice(0, size).map(row => {
-          if (Array.isArray(row)) return row.map(String).slice(0, size);
-          if (typeof row === 'string') return row.replace(/\s/g, '').split('').slice(0, size);
-          return [];
-        });
-        while (data.length < size) data.push(Array(size).fill('0'));
-        data = data.map(r => {
-          if (r.length < size) return r.concat(Array(size - r.length).fill('0'));
-          return r;
-        });
-        return { size, palette, data };
+      function drawRobot(col){
+        const body = col, dark = darken(col,.2), light = lighten(col,.15), line='#000';
+        fillRect(N*0.22, N*0.30, N*0.56, N*0.42, body);
+        fillRect(N*0.22, N*0.70, N*0.56, N*0.12, dark);
+        fillRect(N*0.30, N*0.38, N*0.12, N*0.12, '#ffffff');
+        fillRect(N*0.58, N*0.38, N*0.12, N*0.12, '#ffffff');
+        fillRect(N*0.34, N*0.42, N*0.04, N*0.04, '#000000');
+        fillRect(N*0.62, N*0.42, N*0.04, N*0.04, '#000000');
+        fillRect(N*0.36, N*0.56, N*0.28, N*0.04, '#222');
+        fillRect(N*0.48, N*0.22, N*0.04, N*0.08, line);
+        fillCircle(N*0.50, N*0.20, N*0.03, light);
+        drawGridOverlay();
       }
 
-      function draw(template) {
-        const { size, palette, data } = template;
-        const baseCanvasSize = 32; // keep internal canvas small, scaled via CSS
-        canvas.width = baseCanvasSize;
-        canvas.height = baseCanvasSize;
-        const px = baseCanvasSize / size;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        for (let y = 0; y < size; y++) {
-          const row = data[y];
-          for (let x = 0; x < size; x++) {
-            const code = String(row[x] ?? '0');
-            if (code === '0' || code === '.' || code === ' ') continue;
-            const color = palette[code] || defaultPalette[code] || '#000000';
-            ctx.fillStyle = color;
-            ctx.fillRect(Math.floor(x * px), Math.floor(y * px), Math.ceil(px), Math.ceil(px));
-          }
+      function drawTree(col){
+        const leaves = col, trunk='#8b5a2b', light=lighten(col,.2);
+        fillEllipse(N*0.5, N*0.40, N*0.36, N*0.30, leaves);
+        fillEllipse(N*0.36, N*0.34, N*0.22, N*0.18, light);
+        fillEllipse(N*0.64, N*0.34, N*0.22, N*0.18, light);
+        fillRect(N*0.45, N*0.56, N*0.10, N*0.30, trunk);
+        drawGridOverlay();
+      }
+
+      function drawMountain(col){
+        const rock = col, snow='#ffffff', deep=darken(col,.25);
+        fillTriangle(N*0.10,N*0.88, N*0.46,N*0.30, N*0.82,N*0.88, rock);
+        fillTriangle(N*0.55,N*0.88, N*0.72,N*0.44, N*0.92,N*0.88, deep);
+        fillTriangle(N*0.42,N*0.44, N*0.46,N*0.30, N*0.50,N*0.44, snow);
+        fillTriangle(N*0.68,N*0.56, N*0.72,N*0.44, N*0.76,N*0.56, snow);
+        drawGridOverlay();
+      }
+
+      function drawHouse(col){
+        const body=col, roof=darken(col,.25), door='#5d4037', window='#90caf9';
+        fillRect(N*0.24, N*0.48, N*0.52, N*0.36, body);
+        fillTriangle(N*0.20,N*0.48, N*0.80,N*0.48, N*0.50,N*0.26, roof);
+        fillRect(N*0.46, N*0.64, N*0.12, N*0.20, door);
+        fillRect(N*0.30, N*0.56, N*0.12, N*0.12, window);
+        fillRect(N*0.58, N*0.56, N*0.12, N*0.12, window);
+        drawGridOverlay();
+      }
+
+      function drawStar(col){
+        const main=col;
+        const cx=N*0.5, cy=N*0.48, r1=N*0.38, r2=N*0.16;
+        const pts=[];
+        for (let i=0;i<10;i++){
+          const a = -Math.PI/2 + i * Math.PI/5;
+          const r = i%2===0 ? r1 : r2;
+          pts.push([cx + r*Math.cos(a), cy + r*Math.sin(a)]);
+        }
+        for (let i=0;i<10;i++){
+          const a = pts[i], b = pts[(i+1)%10];
+          fillTriangle(cx,cy, a[0],a[1], b[0],b[1], main);
+        }
+        drawGridOverlay();
+      }
+
+      function drawSkull(col){
+        const bone=col, hole='#000';
+        fillEllipse(N*0.5, N*0.50, N*0.36, N*0.32, bone);
+        fillRect(N*0.34, N*0.66, N*0.32, N*0.10, bone);
+        fillEllipse(N*0.40, N*0.50, N*0.09, N*0.10, hole);
+        fillEllipse(N*0.60, N*0.50, N*0.09, N*0.10, hole);
+        fillTriangle(N*0.50,N*0.58, N*0.46,N*0.64, N*0.54,N*0.64, hole);
+        for (let i=0;i<4;i++){ fillRect(N*(0.36+0.08*i), N*0.72, N*0.06, N*0.06, hole); }
+        drawGridOverlay();
+      }
+
+      function drawGhost(col){
+        const body=col, eye='#111', bg='#ffffff';
+        fillEllipse(N*0.5, N*0.46, N*0.36, N*0.30, body);
+        fillRect(N*0.14, N*0.46, N*0.72, N*0.24, body);
+        for (let i=0;i<3;i++){
+          const cx = N*(0.26+ i*0.24);
+          fillCircle(cx, N*0.86, N*0.10, bg);
+        }
+        fillCircle(N*0.40, N*0.50, N*0.05, eye);
+        fillCircle(N*0.60, N*0.50, N*0.05, eye);
+        drawGridOverlay();
+      }
+
+      function drawBird(col){
+        const body=col, wing=darken(col,.2), beak='#ffb74d', leg='#5d4037', eye='#000';
+        fillEllipse(N*0.52, N*0.58, N*0.26, N*0.18, body);
+        fillEllipse(N*0.44, N*0.56, N*0.14, N*0.12, wing);
+        fillTriangle(N*0.70,N*0.60, N*0.82,N*0.56, N*0.70,N*0.52, beak);
+        for (let i=0;i<2;i++){ fillRect(N*(0.42+i*0.06), N*0.74, N*0.03, N*0.10, leg); }
+        fillCircle(N*0.58, N*0.54, N*0.03, eye);
+        drawGridOverlay();
+      }
+
+      function drawFish(col){
+        const body=col, fin=darken(col,.2), eye='#111';
+        fillEllipse(N*0.46, N*0.58, N*0.28, N*0.16, body);
+        fillTriangle(N*0.20,N*0.58, N*0.06,N*0.50, N*0.06,N*0.66, body);
+        fillTriangle(N*0.46,N*0.48, N*0.34,N*0.58, N*0.46,N*0.58, fin);
+        fillCircle(N*0.62, N*0.56, N*0.03, eye);
+        drawGridOverlay();
+      }
+
+      function drawCar(col){
+        const body=col, dark=darken(col,.2), window='#b3e5fc', wheel='#222';
+        fillRect(N*0.18, N*0.58, N*0.64, N*0.18, body);
+        fillRect(N*0.34, N*0.48, N*0.34, N*0.12, dark);
+        fillRect(N*0.38, N*0.52, N*0.24, N*0.08, window);
+        fillCircle(N*0.32, N*0.78, N*0.08, wheel);
+        fillCircle(N*0.68, N*0.78, N*0.08, wheel);
+        drawGridOverlay();
+      }
+
+      function drawShip(col){
+        const hull=col, mast='#5d4037', sail='#ffffff', wave='#90caf9';
+        fillTriangle(N*0.18,N*0.70, N*0.82,N*0.70, N*0.64,N*0.82, hull);
+        fillRect(N*0.54, N*0.30, N*0.03, N*0.40, mast);
+        fillTriangle(N*0.56,N*0.32, N*0.56,N*0.54, N*0.76,N*0.46, sail);
+        for (let i=0;i<3;i++){ fillEllipse(N*(0.20+i*0.22), N*0.88, N*0.12, N*0.06, wave); }
+        drawGridOverlay();
+      }
+
+      function drawMushroom(col){
+        const cap=col, stem='#f5deb3', spot='#ffffff';
+        fillEllipse(N*0.5, N*0.46, N*0.34, N*0.22, cap);
+        fillRect(N*0.42, N*0.58, N*0.16, N*0.22, stem);
+        for (let i=0;i<4;i++){ fillCircle(N*(0.34+ i*0.12), N*0.46, N*0.05, spot); }
+        drawGridOverlay();
+      }
+
+      function drawSword(col){
+        const blade=col, edge=lighten(col,.25), guard='#8d6e63', handle='#5d4037', pommel='#3e2723';
+        fillRect(N*0.48, N*0.22, N*0.04, N*0.44, blade);
+        fillRect(N*0.46, N*0.22, N*0.02, N*0.44, edge);
+        fillRect(N*0.40, N*0.56, N*0.20, N*0.06, guard);
+        fillRect(N*0.48, N*0.62, N*0.04, N*0.18, handle);
+        fillCircle(N*0.50, N*0.82, N*0.04, pommel);
+        drawGridOverlay();
+      }
+
+      function drawShield(col){
+        const base=col, border=darken(col,.3), emblem=lighten(col,.25);
+        fillEllipse(N*0.5, N*0.50, N*0.28, N*0.36, base);
+        for (let t=0;t<2;t++) fillEllipse(N*0.5, N*0.50, N*0.28 - t*0.8, N*0.36 - t*0.8, border);
+        fillRect(N*0.48, N*0.30, N*0.04, N*0.40, emblem);
+        fillRect(N*0.36, N*0.46, N*0.28, N*0.04, emblem);
+        drawGridOverlay();
+      }
+
+      function drawSmiley(col){
+        const face=col, eye='#111', mouth='#111', light=lighten(col,.25);
+        fillCircle(N*0.5, N*0.5, N*0.36, face);
+        fillCircle(N*0.62, N*0.46, N*0.05, eye);
+        fillCircle(N*0.38, N*0.46, N*0.05, eye);
+        for (let x=0;x<N;x++){
+          const y = Math.round(N*0.60 + 0.10*Math.sin((x/N)*Math.PI));
+          px(x,y,mouth);
+        }
+        fillCircle(N*0.36, N*0.38, N*0.08, light);
+        drawGridOverlay();
+      }
+
+      const DRAWERS = {
+        heart: drawHeart, cat: drawCat, robot: drawRobot, tree: drawTree, mountain: drawMountain,
+        house: drawHouse, star: drawStar, skull: drawSkull, ghost: drawGhost, bird: drawBird,
+        fish: drawFish, car: drawCar, ship: drawShip, mushroom: drawMushroom, sword: drawSword,
+        shield: drawShield, smiley: drawSmiley
+      };
+
+      // ======= pipeline =======
+      function setStatus(t){ $('#log').textContent = t; }
+      function appendStatus(t){ $('#log').textContent += ( $('#log').textContent ? '\n' : '' ) + t; }
+
+      async function plan(text, modelId){
+        const kwCat = keywordCategorize(text);
+        const primary = colorFromText(text, DEFAULTS[kwCat] || '#999');
+        if (modelId==='none') return { category: kwCat, primary };
+        try{
+          await ensureLLM(modelId);
+          setStatus('LLM 분류 중...');
+          const res = await llmCategorize(text);
+          if (!res) return { category: kwCat, primary };
+          const cat = (res.category||'').toLowerCase();
+          const col = res.primary && /^#([0-9a-fA-F]{6})$/.test(res.primary) ? res.primary : primary;
+          if (!DRAWERS[cat]) return { category: kwCat, primary: col };
+          return { category: cat, primary: col };
+        }catch{
+          return { category: kwCat, primary };
         }
       }
 
-      function fallbackTemplate(text, targetSize) {
-        const s = clamp(targetSize, 4, 32);
-        const hash = Array.from(text).reduce((h, c) => (h * 131 + c.charCodeAt(0)) >>> 0, 0);
-        const keys = Object.keys(defaultPalette);
-        const data = [];
-        for (let y = 0; y < s; y++) {
-          const row = [];
-          for (let x = 0; x < s; x++) {
-            const v = ((x + 1) * (y + 7) + ((hash >> (x % 16)) & 0xff) + y * 13) % (keys.length + 2);
-            row.push(v < 2 ? '0' : keys[v - 2]);
-          }
-          data.push(row);
-        }
-        return { size: s, palette: defaultPalette, data };
-      }
-
-      function buildMessages(koreanText, targetSize) {
-        const schema = JSON.stringify({
-          size: targetSize,
-          palette: { "1": "#RRGGBB" },
-          data: Array(targetSize).fill(0).map(() => ".".repeat(targetSize))
-        });
-        const sys = [
-          '너는 PixelArtJSON 도우미야.',
-          '반드시 JSON만 출력하고 다른 텍스트를 포함하지 마.',
-          'JSON 스키마: {"size": number (4~32), "palette": {"code":"hex"}, "data": string[]}.',
-          'data의 각 문자는 팔레트의 키 또는 "0"(투명).',
-          '팔레트 키는 숫자/알파벳 한 글자, 색상은 #RRGGBB.',
-          '예시는 참고용일 뿐, 반드시 주어진 설명에 맞춰 생성해.'
-        ].join(' ');
-        const user = [
-          `설명: "${koreanText}"`,
-          `크기: ${targetSize}×${targetSize}`,
-          `필수 요구사항:`,
-          `1) JSON만 출력`,
-          `2) "size": ${targetSize}`,
-          `3) "data"는 길이 ${targetSize}의 문자열 ${targetSize}개`,
-          `4) "palette"는 사용한 코드만 포함`,
-          `5) 불필요한 주석/설명 금지`,
-          `초기 예시: \`\`\`json\n${schema}\n\`\`\``,
-          `최종 출력은 예시 없이 JSON만!`
-        ].join('\n');
-        return [
-          { role: 'system', content: sys },
-          { role: 'user', content: user }
-        ];
-      }
-
-      async function generateTemplate(text, targetSize, modelId) {
-        await ensureGenerator(modelId);
-        const messages = modelId.includes('LFM2')
-          ? buildMessages(text, targetSize)
-          : [
-              // Ettin/ModernBERT-Decoder 계열은 일반 프롬프트가 안정적
-              `다음 설명을  ${targetSize}x${targetSize} 픽셀아트 JSON으로 만들어. JSON만 출력.\n설명: "${text}"\n스키마: {"size":${targetSize},"palette":{"1":"#RRGGBB"...},"data":["..."]}\nJSON만!`
-            ];
-        const output = await generator(messages, {
-          max_new_tokens: 220,
-          do_sample: false,
-          repetition_penalty: 1.05
-        });
-        const content = Array.isArray(output?.[0]?.generated_text)
-          ? output[0].generated_text.at(-1).content
-          : (output?.[0]?.generated_text ?? '');
-        const json = extractJSON(content);
-        return normalizeTemplate(json, targetSize);
-      }
-
-      $('#generate').addEventListener('click', async () => {
+      async function generate(){
         if (busy) return;
         const text = $('#prompt').value.trim();
-        const targetSize = parseInt($('#size').value, 10) || 16;
         const modelId = $('#model').value;
+        const targetN = parseInt($('#size').value, 10) || 16;
         if (!text) return;
         busy = true;
-        setStatus('생성 중...');
-        try {
-          const tpl = await generateTemplate(text, targetSize, modelId);
-          draw(tpl);
-          setStatus('완료');
-        } catch (err) {
-          console.error(err);
-          appendStatus('LLM 생성 실패. 폴백 템플릿을 사용합니다.');
-          const tpl = fallbackTemplate(text, targetSize);
-          draw(tpl);
-          setStatus('폴백으로 완료');
-        } finally {
+        setStatus('준비 중...');
+        setGrid(targetN);
+        try{
+          const { category, primary } = await plan(text, modelId);
+          clearCanvas();
+          const draw = DRAWERS[category] || DRAWERS.heart;
+          draw(primary);
+          setStatus(`완료: ${category} (${primary})  • ${targetN}×${targetN}`);
+        }catch(e){
+          console.error(e);
+          setStatus('실패: 폴백 하트');
+          clearCanvas();
+          drawHeart('#e53935');
+        }finally{
           busy = false;
         }
-      });
+      }
 
-      $('#download').addEventListener('click', () => {
+      // ======= UI events =======
+      $('#generate').addEventListener('click', generate);
+      $('#prompt').addEventListener('keydown', e => { if (e.key==='Enter') generate(); });
+      $('#size').addEventListener('change', ()=>{ setGrid(parseInt($('#size').value,10)||16); });
+      $('#gridToggle').addEventListener('change', ()=>{ const n=N; clearCanvas(); setGrid(n); });
+      $('#download').addEventListener('click', ()=>{
         const a = document.createElement('a');
         a.download = 'pixel-art.png';
         a.href = canvas.toDataURL('image/png');
         a.click();
       });
+      $('#clear').addEventListener('click', ()=>{ clearCanvas(); setStatus('캔버스 초기화'); });
 
-      $('#clear').addEventListener('click', () => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        setStatus('캔버스 초기화');
-      });
-
-      // UX: Enter로 생성
-      $('#prompt').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') $('#generate').click();
-      });
-
-      // 초기 안내
-      setStatus(`장치: ${device}${hasWebGPU ? ' (WebGPU 가속)' : ''}`);
+      // init
+      setGrid(16);
+      setStatus('텍스트를 입력하고 Generate를 눌러보세요.');
     </script>
   </body>
 </html>
