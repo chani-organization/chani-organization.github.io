@@ -65,8 +65,10 @@
 
       let generator = null;
       try {
+
         // DistilGPT2 provides a smaller, pre-converted model for use in the browser
         generator = await pipeline('text-generation', 'Xenova/distilgpt2');
+
       } catch (err) {
         log.textContent = '모델 로드 실패';
         throw err;
