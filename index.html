@@ -259,7 +259,16 @@
           try{
             await ensureLLM(model);
             const target = N<=16?16:(N<=24?24:32);
-            const prompt = `Output only JSON for ${target}x${target} pixelart of "${text}". Keys: {"size":${target},"palette":{"1":"#RRGGBB"...},"data":["..."]}. Use 0 for transparent. No extra text.`;
+            const prompt = [
+              'You are a pixel art generator that must reply with JSON only.',
+              `Create a ${target}x${target} template for: "${text}".`,
+              'Return an object with keys "size", "palette", "data".',
+              `"size" must be ${target}.`,
+              '"palette" must map string digits like "1","2",... to "#RRGGBB" colours.',
+              `Provide exactly ${target} rows in "data", each a string of length ${target}.`,
+              'Use only characters 0 or palette keys in the data. 0 means transparent.',
+              'Do not add commentary or formatting outside the JSON object.'
+            ].join('\n');
             log('LLM 생성 중...');
             const out = await llm(prompt,{ max_new_tokens:220, do_sample:false });
             const raw = String(out?.[0]?.generated_text||'').trim();
