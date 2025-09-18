@@ -108,6 +108,23 @@
         red:'#e53935', blue:'#1e90ff', green:'#2ecc71', yellow:'#ffd166', orange:'#ff8c42', pink:'#ff66b3', purple:'#7c4dff', brown:'#8d6e63', black:'#000000', white:'#ffffff', gray:'#9aa0a6', grey:'#9aa0a6', cyan:'#29adff', teal:'#20c997', gold:'#ffd700', silver:'#c0c0c0',
         빨강:'#e53935', 빨간:'#e53935', 파랑:'#1e90ff', 파란:'#1e90ff', 초록:'#2ecc71', 녹색:'#2ecc71', 노랑:'#ffd166', 주황:'#ff8c42', 분홍:'#ff66b3', 보라:'#7c4dff', 갈색:'#8d6e63', 검정:'#000000', 하양:'#ffffff', 흰색:'#ffffff', 회색:'#9aa0a6', 하늘:'#87ceeb', 청록:'#20c997', 금색:'#ffd700', 은색:'#c0c0c0'
       };
+      const CATEGORY_KEYWORDS = {
+        animal: ['animal','mammal','creature','beast','bird','fish','insect','reptile','feline','canine','amphibian','fauna','pet','cat','dog','kitten','puppy','wolf','lion','tiger','bear','dragon','고양이','강아지','동물','포유류','새','물고기','고래','상어','조류','파충류','곤충','사자','호랑이','늑대','용','토끼','말'],
+        plant: ['plant','tree','flower','leaf','flora','vine','grass','moss','cactus','bloom','seed','herb','fruit','식물','나무','꽃','잎','풀','덩굴','이끼','선인장','씨앗','열매','과일','꽃잎','꽃송이','장미','꽃병'],
+        person: ['person','human','people','character','face','figure','portrait','hero','villain','girl','boy','man','woman','사람','인물','캐릭터','얼굴','초상','영웅','악당','소녀','소년','남자','여자','아이','인간','주인공','인물상'],
+        structure: ['building','house','castle','tower','temple','bridge','structure','architecture','home','palace','fortress','city','village','건물','집','성','성곽','탑','사원','다리','구조물','건축','궁전','요새','마을','고성','문','문루'],
+        vehicle: ['vehicle','car','ship','boat','vessel','plane','rocket','train','transport','automobile','submarine','bike','spaceship','차','자동차','배','보트','선박','비행기','로켓','열차','기차','우주선','자전거','트럭','지하철'],
+        weapon: ['weapon','sword','blade','shield','gun','rifle','axe','bow','armor','armour','槍','무기','검','칼','방패','총','라이플','도끼','활','갑옷','창','창검','무기류','창날'],
+        technology: ['robot','machine','device','android','cyber','digital','technology','computer','mecha','droid','electronic','ai','drone','로봇','기계','장치','사이버','디지털','기술','컴퓨터','메카','드로이드','인공지능','전자','드론','기술적'],
+        weather: ['weather','cloud','rain','storm','snow','wind','thunder','lightning','climate','fog','날씨','구름','비','폭풍','눈','바람','천둥','번개','기후','장마','안개','눈보라'],
+        celestial: ['space','star','sun','moon','planet','galaxy','cosmic','astral','comet','sky','constellation','starlight','universe','우주','별','태양','달','행성','은하','천체','하늘','성운','밤하늘','별빛'],
+        water: ['water','sea','ocean','river','lake','wave','aquatic','marine','pond','shore','물','바다','해양','강','호수','파도','연못','수중','바닷물','해변','물결'],
+        fire: ['fire','flame','ember','lava','blaze','inferno','heat','ignite','불','불꽃','화염','용암','불길','열기','불타는'],
+        nature: ['mountain','forest','landscape','valley','hill','meadow','scene','wilderness','peak','nature','산','숲','풍경','계곡','언덕','초원','자연','바위','절경','들판'],
+        food: ['food','fruit','vegetable','cake','dessert','drink','meal','candy','bread','snack','coffee','chocolate','음식','과일','채소','야채','케이크','디저트','음료','식사','사탕','빵','커피','초콜릿','과자'],
+        symbol: ['symbol','icon','logo','emblem','sigil','badge','crest','mark','insignia','심볼','아이콘','로고','엠블럼','문양','상징','마크','문장','표식'],
+        mythic: ['myth','spirit','ghost','dragon','monster','fairy','demon','legendary','magic','fantasy','신화','정령','유령','드래곤','용','괴물','요정','악마','전설','환상','도깨비','마법']
+      };
       function primaryFromText(t, fallback){ for (const [k,v] of Object.entries(NAMED)){ if (t.toLowerCase().includes(k)) return v; } const m = t.match(/#([0-9a-fA-F]{6})/); return m?('#'+m[1]):fallback; }
 
       const DEFAULT_FALLBACKS = ['#ff8c42','#2ecc71','#1e90ff','#ffd166','#ff66b3','#7c4dff','#8d6e63'];
@@ -206,23 +223,31 @@
       return out; }
       function hintsToContext(hints){ if (!hints?.length) return 'none'; return hints.map(h=>`${h.word}: ${h.definitions.join('; ')}`).join('\n'); }
       function collectDefinitionText(hints){ return hints.map(h=>h.definitions.join(' ')).join(' ').toLowerCase(); }
-      function buildSemanticProfile(text, hints){ const corpus=(`${text||''} ${collectDefinitionText(hints)}`).toLowerCase(); const hasAny=(...words)=>words.some(w=>corpus.includes(w)); return {
-        animal: hasAny('animal','mammal','creature','beast','bird','fish','insect','reptile','feline','canine','amphibian','fauna'),
-        plant: hasAny('plant','tree','flower','leaf','flora','vine','grass','moss','cactus','bloom','seed','herb','fruit'),
-        person: hasAny('person','human','people','character','face','figure','portrait','hero','villain','girl','boy','man','woman'),
-        structure: hasAny('building','house','castle','tower','temple','bridge','structure','architecture','home','palace','fortress'),
-        vehicle: hasAny('vehicle','car','ship','boat','vessel','plane','rocket','train','transport','automobile'),
-        weapon: hasAny('weapon','sword','blade','shield','gun','rifle','axe','bow','armor','armour'),
-        technology: hasAny('robot','machine','device','android','cyber','digital','technology','computer','mecha','droid'),
-        weather: hasAny('weather','cloud','rain','storm','snow','wind','thunder','lightning','climate'),
-        celestial: hasAny('space','star','sun','moon','planet','galaxy','cosmic','astral','comet','sky','constellation'),
-        water: hasAny('water','sea','ocean','river','lake','wave','aquatic','marine'),
-        fire: hasAny('fire','flame','ember','lava','blaze','inferno','heat'),
-        nature: hasAny('mountain','forest','landscape','valley','hill','meadow','scene'),
-        food: hasAny('food','fruit','vegetable','cake','dessert','drink','meal','candy','bread'),
-        symbol: hasAny('symbol','icon','logo','emblem','sigil','badge'),
-        mythic: hasAny('myth','spirit','ghost','dragon','monster','fairy','demon','legendary'),
-      }; }
+      function buildSemanticProfile(text, hints){
+        const corpus = (`${text||''} ${collectDefinitionText(hints)}`).toLowerCase();
+        const includesKeyword = (keyword)=>corpus.includes(keyword.toLowerCase());
+        const hasCategory = (key)=>{
+          const words = CATEGORY_KEYWORDS[key] || [];
+          return words.some(includesKeyword);
+        };
+        return {
+          animal: hasCategory('animal'),
+          plant: hasCategory('plant'),
+          person: hasCategory('person'),
+          structure: hasCategory('structure'),
+          vehicle: hasCategory('vehicle'),
+          weapon: hasCategory('weapon'),
+          technology: hasCategory('technology'),
+          weather: hasCategory('weather'),
+          celestial: hasCategory('celestial'),
+          water: hasCategory('water'),
+          fire: hasCategory('fire'),
+          nature: hasCategory('nature'),
+          food: hasCategory('food'),
+          symbol: hasCategory('symbol'),
+          mythic: hasCategory('mythic'),
+        };
+      }
       function summarizeHintsForLog(hints){ if (!hints?.length) return ''; return hints.map(h=>`${h.word}: ${h.definitions[0]}`).join(' | '); }
 
       let hf = null;
