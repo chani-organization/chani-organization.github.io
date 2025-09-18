@@ -249,6 +249,51 @@
         };
       }
       function summarizeHintsForLog(hints){ if (!hints?.length) return ''; return hints.map(h=>`${h.word}: ${h.definitions[0]}`).join(' | '); }
+      const asList = (value)=>{
+        if (Array.isArray(value)) return value.map((v)=>String(v||'').trim()).filter(Boolean);
+        if (typeof value === 'string') return value.split(/[,;\n]+/).map((v)=>v.trim()).filter(Boolean);
+        return [];
+      };
+      function normalizePlan(plan){
+        if (!plan || typeof plan !== 'object') return null;
+        const subject = typeof plan.subject === 'string' ? plan.subject.trim() : typeof plan.theme === 'string' ? plan.theme.trim() : '';
+        const backgroundRaw = typeof plan.background === 'string' ? plan.background : (typeof plan.backdrop === 'string' ? plan.backdrop : '');
+        const background = backgroundRaw.trim ? backgroundRaw.trim() : '';
+        const layoutRaw = typeof plan.layout === 'string' ? plan.layout : (typeof plan.composition === 'string' ? plan.composition : '');
+        const layout = layoutRaw.trim ? layoutRaw.trim() : '';
+        const focus = [...asList(plan.focus), ...asList(plan.details), ...asList(plan.elements)].filter(Boolean);
+        const palette = asList(plan.palette).filter(Boolean).slice(0,5);
+        const unique = (arr)=>Array.from(new Set(arr.map((v)=>v.trim()).filter(Boolean)));
+        const normalized = {
+          subject,
+          background: background || '',
+          layout: layout || '',
+          focus: unique(focus).slice(0,4),
+          palette: unique(palette),
+        };
+        if (!normalized.subject && !normalized.background && !normalized.layout && !normalized.focus.length && !normalized.palette.length) return null;
+        return normalized;
+      }
+      function planToGuidance(plan){
+        if (!plan) return '';
+        const parts = [];
+        if (plan.subject) parts.push(`Primary subject: ${plan.subject}.`);
+        if (plan.focus?.length) parts.push(`Key features: ${plan.focus.join(', ')}.`);
+        if (plan.layout) parts.push(`Layout guidance: ${plan.layout}.`);
+        if (plan.background) parts.push(`Background: ${plan.background}.`);
+        if (plan.palette?.length) parts.push(`Palette cues: ${plan.palette.join(', ')}.`);
+        return parts.join('\n');
+      }
+      function summarizePlanForLog(plan){
+        if (!plan) return '';
+        const parts = [];
+        if (plan.subject) parts.push(`주제 ${plan.subject}`);
+        if (plan.focus?.length) parts.push(`포커스 ${plan.focus.slice(0,2).join(', ')}`);
+        if (plan.layout) parts.push(`레이아웃 ${plan.layout}`);
+        if (plan.background) parts.push(`배경 ${plan.background}`);
+        if (plan.palette?.length) parts.push(`팔레트 ${plan.palette.slice(0,2).join(', ')}`);
+        return parts.join(' | ');
+      }
 
       let hf = null;
       let llm = null;
@@ -282,7 +327,25 @@
         mirrorOverride = prev;
       }
 
-      function buildLLMPrompt({ text, target, lexical, colorHint }){
+      function buildPlanningPrompt({ text, target, lexical, colorHint }){
+        const lexicalSection = hintsToContext(lexical);
+        const lexicalLine = lexicalSection==='none'
+          ? 'Lexical notes: none. Focus on literal dictionary meaning.'
+          : `Lexical notes:\n${lexicalSection}`;
+        const colorLine = colorHint
+          ? `Consider hues related to ${colorHint} only when they reinforce the literal subject.`
+          : 'No specific colour hint detected; rely on literal subject cues.';
+        return [
+          'You are LexiPixel Planner, a planning assistant that must respond with JSON only.',
+          `Plan a ${target}x${target} pixel art composition for "${text}".`,
+          'Stay faithful to the literal dictionary meaning of every described noun or adjective.',
+          lexicalLine,
+          colorLine,
+          'Return a JSON object with keys "subject" (string), "focus" (array of 2-4 short feature phrases), "background" (string), "layout" (string), "palette" (array of 3-5 colour names or #RRGGBB).',
+          'Do not add commentary, markdown fences, or explanations outside the JSON object.'
+        ].join('\n');
+      }
+      function buildLLMPrompt({ text, target, lexical, colorHint, plan }){
         const palette = PALETTES[paletteKey] || [];
         const paletteLine = palette.length? `Palette (${paletteKey}): ${palette.join(', ')}.` : 'Palette: choose harmonious #RRGGBB colours.';
         const lexicalSection = hintsToContext(lexical);
@@ -294,14 +357,21 @@
         const transparencyLine = transparent
           ? 'Leave background pixels as 0 (transparent).'
           : `If a background is required fill unused pixels with ${bgColor}; 0 still indicates transparency.`;
-        const colourLine = colorHint ? `Incorporate hues related to ${colorHint} when it fits the subject.` : 'Choose colours that match the subject.';
+        const planGuidance = planToGuidance(plan);
+        const colourParts = [colorHint ? `Incorporate hues related to ${colorHint} when it fits the subject.` : 'Choose colours that match the subject.'];
+        if (plan?.palette?.length) colourParts.push(`Plan palette cues: ${plan.palette.join(', ')}.`);
+        const colourLine = colourParts.join(' ');
         const lexicalLine = lexicalSection==='none'
           ? 'Lexical notes: none. Interpret the request literally using dictionary meaning.'
           : `Lexical notes:\n${lexicalSection}`;
+        const planLine = planGuidance
+          ? `Follow this approved plan:\n${planGuidance}`
+          : 'Compose the scene yourself while staying faithful to the literal meaning.';
         return [
           'You are LexiPixel, a pixel art generator that must respond with JSON only.',
           `Design a ${target}x${target} pixel art template for "${text}".`,
           'Focus on the literal dictionary meaning of every noun and adjective.',
+          planLine,
           lexicalLine,
           colourLine,
           paletteLine,
@@ -319,11 +389,23 @@
         const target = N<=16?16:(N<=24?24:32);
         const lexical = await collectLexicalHints(text);
         const colorHint = primaryFromText(text, fallbackPrimary(text));
+        let plan = null;
         try {
           await ensureLLM();
-          const prompt = buildLLMPrompt({ text, target, lexical, colorHint });
-          const maxTokens = target>=32?360:(target>=24?260:220);
+          log('LLM 구상 중...');
+          try {
+            const planningPrompt = buildPlanningPrompt({ text, target, lexical, colorHint });
+            const planTokens = target>=32?200:160;
+            const planOut = await llm(planningPrompt,{ max_new_tokens:planTokens, do_sample:false });
+            const planRaw = String(planOut?.[0]?.generated_text||'').trim();
+            const planJSON = extractJSON(planRaw);
+            plan = normalizePlan(planJSON) || null;
+          } catch (planningError){
+            console.warn('Planning step failed', planningError);
+          }
           log('LLM 생성 중...');
+          const prompt = buildLLMPrompt({ text, target, lexical, colorHint, plan });
+          const maxTokens = target>=32?360:(target>=24?260:220);
           const out = await llm(prompt,{ max_new_tokens:maxTokens, do_sample:false });
           const raw = String(out?.[0]?.generated_text||'').trim();
           const json = extractJSON(raw);
@@ -333,12 +415,14 @@
           drawOutline();
           applyBackground();
           drawGridOverlay();
+          const planLog = summarizePlanForLog(plan);
           const lexLog = summarizeHintsForLog(lexical);
-          log(`완료(LLM)${lexLog?` — ${lexLog}`:''}`);
-          return { lexical, colorHint };
+          const extra = [planLog, lexLog].filter(Boolean).join(' | ');
+          log(`완료(LLM)${extra?` — ${extra}`:''}`);
+          return { lexical, colorHint, plan };
         } catch (error){
           console.error(error);
-          throw { error, lexical, colorHint };
+          throw { error, lexical, colorHint, plan };
         }
       }
 
