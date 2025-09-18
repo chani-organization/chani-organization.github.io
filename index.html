@@ -10,7 +10,7 @@
       body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0f1216; color: #e5e7eb; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
       #app { width: 100%; max-width: 1000px; padding: 16px; display: grid; gap: 12px; }
       #top { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
-      #controls { display: grid; grid-template-columns: 1fr repeat(6, max-content); gap: 8px; align-items: center; }
+      #controls { display: grid; grid-template-columns: 1fr repeat(5, max-content); gap: 8px; align-items: center; }
       input[type="text"] { width: 100%; padding: 10px 12px; border: 1px solid #2b3038; border-radius: 10px; background: #12161c; color: #e5e7eb; }
       select, input[type="color"], input[type="number"] { padding: 10px 12px; border: 1px solid #2b3038; border-radius: 10px; background: #12161c; color: #e5e7eb; }
       button { padding: 10px 14px; border: 1px solid #2b3038; border-radius: 10px; background: #1b2028; color: #e5e7eb; cursor: pointer; }
@@ -48,8 +48,8 @@
             <option value="dither">Dither</option>
           </select>
           <select id="gen">
-            <option value="rule" selected>Rule-based(빠름)</option>
-            <option value="llm-ettin">LLM: Ettin-150M</option>
+            <option value="lexical" selected>Lexical LLM(사전)</option>
+            <option value="procedural">Procedural Synth</option>
           </select>
           <button id="generate">Generate</button>
         </div>
@@ -110,42 +110,12 @@
       };
       function primaryFromText(t, fallback){ for (const [k,v] of Object.entries(NAMED)){ if (t.toLowerCase().includes(k)) return v; } const m = t.match(/#([0-9a-fA-F]{6})/); return m?('#'+m[1]):fallback; }
 
-      const CATS = [
-        {k:'heart', w:['heart','하트','심장','사랑']},
-        {k:'cat', w:['cat','고양','냥','야옹']},
-        {k:'dog', w:['dog','강아지','개','멍']},
-        {k:'rabbit', w:['rabbit','토끼','래빗']},
-        {k:'robot', w:['robot','로봇','봇']},
-        {k:'tree', w:['tree','나무']},
-        {k:'mountain', w:['mountain','산','봉우리']},
-        {k:'house', w:['house','집','주택']},
-        {k:'star', w:['star','별']},
-        {k:'skull', w:['skull','해골']},
-        {k:'ghost', w:['ghost','유령','고스트']},
-        {k:'bird', w:['bird','새']},
-        {k:'fish', w:['fish','물고기']},
-        {k:'car', w:['car','자동차','차']},
-        {k:'ship', w:['ship','배','보트','선박','요트']},
-        {k:'mushroom', w:['mushroom','버섯']},
-        {k:'sword', w:['sword','검','소드','칼']},
-        {k:'shield', w:['shield','방패']},
-        {k:'flower', w:['flower','꽃']},
-        {k:'cactus', w:['cactus','선인장','캑터스']},
-        {k:'cloud', w:['cloud','구름']},
-        {k:'sun', w:['sun','태양','해']},
-        {k:'moon', w:['moon','달','문']},
-        {k:'snowflake', w:['snow','눈','스노우','snowflake']},
-        {k:'smiley', w:['smile','스마일','웃는','웃음','이모지','emoji']}
-      ];
-      function categorize(text){
-        const t = text.toLowerCase();
-        let best = {k:'heart', s:0};
-        for (const c of CATS){
-          let s = 0;
-          for (const w of c.w){ if (t.includes(w)) s += w.length; }
-          if (s > best.s) best = {k:c.k, s};
-        }
-        return best.k;
+      const DEFAULT_FALLBACKS = ['#ff8c42','#2ecc71','#1e90ff','#ffd166','#ff66b3','#7c4dff','#8d6e63'];
+      function fallbackPrimary(text){
+        if (!text) return DEFAULT_FALLBACKS[0];
+        let hash = 0;
+        for (const ch of text){ hash = (hash*131 + ch.charCodeAt(0))|0; }
+        return DEFAULT_FALLBACKS[Math.abs(hash)%DEFAULT_FALLBACKS.length];
       }
 
       const BAYER8 = [
@@ -168,18 +138,28 @@
       let bgColor = '#151922';
       let paletteKey = 'vivid';
       let rng = mulberry32(1);
+      let mirrorOverride = null;
 
       function setSeedFromInputs(){ const base = ($('#prompt').value.trim()||'').split('').reduce((a,c)=>(a*131 + c.charCodeAt(0))>>>0, 0); const user = parseInt($('#seed').value||'0',10)>>>0; rng = mulberry32(base ^ user ^ (N<<16)); }
 
-      function px(x,y,color){
+      function styledColorAt(x,y,color){
+        if (styleMode==='shaded'){ const g = ((x+y)/(2*(N-1))); const amt = (g-0.5)*0.6; return amt>0?darken(color,Math.min(.35, Math.abs(amt))):lighten(color,Math.min(.35, Math.abs(amt))); }
+        if (styleMode==='dither'){ const t = BAYER8[(y&7)*8+(x&7)]/63; const amt = 0.28; return t<0.5?lighten(color,amt):darken(color,amt); }
+        return color;
+      }
+
+      function px(x,y,color,mirrorSetting){
         if (x<0||y<0||x>=N||y>=N) return;
-        let c = color;
-        if (styleMode==='shaded'){ const g = ((x+y)/(2*(N-1))); const amt = (g-0.5)*0.6; c = amt>0?darken(color,Math.min(.35, Math.abs(amt))):lighten(color,Math.min(.35, Math.abs(amt))); }
-        else if (styleMode==='dither'){ const t = BAYER8[(y&7)*8+(x&7)]/63; const amt = 0.28; c = t<0.5?lighten(color,amt):darken(color,amt); }
-        ctx.fillStyle = c;
-        ctx.fillRect(x, y, 1, 1);
-        MASK[y*N+x] = 1;
-        if (symX){ const mx = N-1-x; ctx.fillRect(mx, y, 1, 1); MASK[y*N+mx] = 1; }
+        const useMirror = mirrorSetting===undefined? (mirrorOverride ?? symX) : mirrorSetting;
+        const paint = (ix,iy)=>{
+          if (ix<0||iy<0||ix>=N||iy>=N) return;
+          const c = styledColorAt(ix,iy,color);
+          ctx.fillStyle = c;
+          ctx.fillRect(ix, iy, 1, 1);
+          MASK[iy*N+ix] = 1;
+        };
+        paint(x,y);
+        if (useMirror){ const mx = N-1-x; if (mx!==x) paint(mx,y); }
       }
 
       function fillRect(x,y,w,h,color){ const x0=Math.max(0,Math.floor(x)), y0=Math.max(0,Math.floor(y)), x1=Math.min(N,Math.ceil(x+w)), y1=Math.min(N,Math.ceil(h+y)); for (let j=y0;j<y1;j++){ for (let i=x0;i<x1;i++){ px(i,j,color); } } }
@@ -192,42 +172,62 @@
       function applyBackground(){ if (transparent) return; ctx.save(); ctx.globalCompositeOperation='destination-over'; ctx.fillStyle = bgColor; ctx.fillRect(0,0,N,N); ctx.restore(); }
       function drawGridOverlay(){ if (!drawGrid) return; ctx.save(); ctx.globalAlpha = 0.25; ctx.strokeStyle = '#2a3038'; ctx.lineWidth = 0.03; for (let i=1;i<N;i++){ ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,N); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(N,i); ctx.stroke(); } ctx.restore(); }
       function computeOutline(){ OUTLINE.fill(0); for (let y=0;y<N;y++){ for (let x=0;x<N;x++){ const idx=y*N+x; if (!MASK[idx]) continue; const nb = (x>0&&!MASK[idx-1])||(x<N-1&&!MASK[idx+1])||(y>0&&!MASK[idx-N])||(y<N-1&&!MASK[idx+N])|| (x>0&&y>0&&!MASK[idx-N-1])||(x<N-1&&y>0&&!MASK[idx-N+1])||(x>0&&y<N-1&&!MASK[idx+N-1])||(x<N-1&&y<N-1&&!MASK[idx+N+1]); if (nb) OUTLINE[idx]=1; } } }
-      function drawOutline(){ if (!drawOutlineFlag) return; computeOutline(); ctx.save(); for (let y=0;y<N;y++){ for (let x=0;x<N;x++){ if (OUTLINE[y*N+x]){ ctx.fillStyle = outlineColor; ctx.fillRect(x,y,1,1); if (symX){ const mx=N-1-x; ctx.fillRect(mx,y,1,1); } } } } ctx.restore(); }
+      function drawOutline(){
+        if (!drawOutlineFlag) return;
+        computeOutline();
+        ctx.save();
+        const useMirror = mirrorOverride ?? symX;
+        for (let y=0;y<N;y++){
+          for (let x=0;x<N;x++){
+            if (!OUTLINE[y*N+x]) continue;
+            ctx.fillStyle = outlineColor;
+            ctx.fillRect(x,y,1,1);
+            if (useMirror){ const mx=N-1-x; if (mx!==x) ctx.fillRect(mx,y,1,1); }
+          }
+        }
+        ctx.restore();
+      }
 
       function withPalette(main){ const p = PALETTES[paletteKey]; const base = main; const dark = darken(main, .25); const light = lighten(main, .2); const accent = p[(Math.floor(rng()*p.length))%p.length]; return { base, dark, light, accent }; }
 
-      function drawHeart(col){ const {base, dark, light}=withPalette(col); for (let y=0;y<N;y++){ for (let x=0;x<N;x++){ const X=(x-N*0.5)/(N*0.5)*1.3; const Y=(y-N*0.60)/(N*0.5)*1.3; const f=Math.pow(X*X+Y*Y-1,3)-X*X*Y*Y*Y; if (f<=0) px(x,y,(x+y)%3===0?light:base); } } for (let i=0;i<N;i++){ px(i,N-1,dark); } }
-      function drawCat(col){ const {base, light}=withPalette(col); fillCircle(N*0.5, N*0.60, N*0.34, base); fillTriangle(N*0.22,N*0.48, N*0.34,N*0.18, N*0.46,N*0.48, base); fillTriangle(N*0.54,N*0.48, N*0.66,N*0.18, N*0.78,N*0.48, base); fillTriangle(N*0.28,N*0.48, N*0.34,N*0.28, N*0.40,N*0.48, light); fillTriangle(N*0.60,N*0.48, N*0.66,N*0.28, N*0.72,N*0.48, light); fillEllipse(N*0.38, N*0.60, N*0.08, N*0.10, '#ffffff'); fillEllipse(N*0.62, N*0.60, N*0.08, N*0.10, '#ffffff'); fillEllipse(N*0.38, N*0.60, N*0.03, N*0.05, '#111'); fillEllipse(N*0.62, N*0.60, N*0.03, N*0.05, '#111'); fillTriangle(N*0.50,N*0.66, N*0.47,N*0.70, N*0.53,N*0.70, '#f28cb1'); for (let i=-1;i<=1;i++){ for (let dx=-4;dx<=-1;dx++) px(Math.round(N*0.50)+dx, Math.round(N*0.70)+i, '#111'); for (let dx=1;dx<=4;dx++) px(Math.round(N*0.50)+dx, Math.round(N*0.72)+i, '#111'); } }
-      function drawDog(col){ const {base, light}=withPalette(col); fillCircle(N*0.5, N*0.60, N*0.34, base); fillEllipse(N*0.34, N*0.40, N*0.12, N*0.16, base); fillEllipse(N*0.66, N*0.40, N*0.12, N*0.16, base); fillEllipse(N*0.50, N*0.68, N*0.20, N*0.14, light); fillEllipse(N*0.40, N*0.58, N*0.04, N*0.06, '#111'); fillEllipse(N*0.60, N*0.58, N*0.04, N*0.06, '#111'); fillCircle(N*0.50, N*0.70, N*0.04, '#111'); }
-      function drawRabbit(col){ const {base, light}=withPalette(col); fillEllipse(N*0.36, N*0.32, N*0.08, N*0.22, base); fillEllipse(N*0.64, N*0.32, N*0.08, N*0.22, base); fillCircle(N*0.5, N*0.62, N*0.30, base); fillEllipse(N*0.36, N*0.36, N*0.04, N*0.12, light); fillEllipse(N*0.64, N*0.36, N*0.04, N*0.12, light); fillCircle(N*0.60, N*0.60, N*0.04, '#111'); fillCircle(N*0.40, N*0.60, N*0.04, '#111'); fillRect(N*0.48, N*0.70, N*0.04, N*0.10, '#f28cb1'); }
-      function drawRobot(col){ const {base, light}=withPalette(col); fillRect(N*0.22,N*0.34,N*0.56,N*0.42, base); fillRect(N*0.30,N*0.42,N*0.12,N*0.12, '#fff'); fillRect(N*0.58,N*0.42,N*0.12,N*0.12, '#fff'); fillRect(N*0.34,N*0.46,N*0.04,N*0.04, '#000'); fillRect(N*0.62,N*0.46,N*0.04,N*0.04, '#000'); fillRect(N*0.36,N*0.60,N*0.28,N*0.05, '#222'); fillRect(N*0.49,N*0.24,N*0.02,N*0.08, '#000'); fillCircle(N*0.50,N*0.22,N*0.03, light); }
-      function drawTree(col){ const {base, light}=withPalette(col); fillEllipse(N*0.5, N*0.42, N*0.36, N*0.30, base); fillEllipse(N*0.36, N*0.36, N*0.22, N*0.18, light); fillEllipse(N*0.64, N*0.36, N*0.22, N*0.18, light); fillRect(N*0.46, N*0.60, N*0.08, N*0.28, '#8b5a2b'); }
-      function drawMountain(col){ const {base}=withPalette(col); fillTriangle(N*0.10,N*0.90, N*0.46,N*0.30, N*0.82,N*0.90, base); fillTriangle(N*0.55,N*0.90, N*0.72,N*0.44, N*0.92,N*0.90, darken(base,.25)); fillTriangle(N*0.42,N*0.44, N*0.46,N*0.30, N*0.50,N*0.44, '#fff'); fillTriangle(N*0.68,N*0.56, N*0.72,N*0.44, N*0.76,N*0.56, '#fff'); }
-      function drawHouse(col){ const {base}=withPalette(col); fillRect(N*0.24,N*0.50,N*0.52,N*0.34, base); fillTriangle(N*0.20,N*0.50, N*0.80,N*0.50, N*0.50,N*0.26, darken(base,.25)); fillRect(N*0.46,N*0.66,N*0.12,N*0.18, '#5d4037'); fillRect(N*0.30,N*0.58,N*0.12,N*0.12, '#90caf9'); fillRect(N*0.58,N*0.58,N*0.12,N*0.12, '#90caf9'); }
-      function drawStar(col){ const {base}=withPalette(col); const cx=N*0.5, cy=N*0.48, r1=N*0.38, r2=N*0.16; const pts=[]; for (let i=0;i<10;i++){ const a=-Math.PI/2+i*Math.PI/5; const r=i%2===0?r1:r2; pts.push([cx+r*Math.cos(a), cy+r*Math.sin(a)]); } for (let i=0;i<10;i++){ const a=pts[i], b=pts[(i+1)%10]; fillTriangle(cx,cy, a[0],a[1], b[0],b[1], base); } }
-      function drawSkull(col){ const bone=col; fillEllipse(N*0.5,N*0.50,N*0.36,N*0.32,bone); fillRect(N*0.34,N*0.68,N*0.32,N*0.10,bone); fillEllipse(N*0.40,N*0.50,N*0.09,N*0.10,'#000'); fillEllipse(N*0.60,N*0.50,N*0.09,N*0.10,'#000'); fillTriangle(N*0.50,N*0.60, N*0.46,N*0.66, N*0.54,N*0.66, '#000'); for (let i=0;i<4;i++){ fillRect(N*(0.36+0.08*i), N*0.74, N*0.06, N*0.06, '#000'); } }
-      function drawGhost(col){ const body=col; fillEllipse(N*0.5,N*0.46,N*0.36,N*0.30,body); fillRect(N*0.14,N*0.46,N*0.72,N*0.26,body); for (let i=0;i<3;i++){ fillCircle(N*(0.26+i*0.24), N*0.90, N*0.10, transparent?'#0000':'#ffffff'); } fillCircle(N*0.60,N*0.50,N*0.05,'#111'); fillCircle(N*0.40,N*0.50,N*0.05,'#111'); }
-      function drawBird(col){ const {base}=withPalette(col); fillEllipse(N*0.52, N*0.60, N*0.26, N*0.18, base); fillEllipse(N*0.44, N*0.58, N*0.14, N*0.12, darken(base,.2)); fillTriangle(N*0.70,N*0.60, N*0.82,N*0.56, N*0.70,N*0.52, '#ffb74d'); for (let i=0;i<2;i++){ fillRect(N*(0.42+i*0.06), N*0.78, N*0.03, N*0.10, '#5d4037'); } fillCircle(N*0.58, N*0.56, N*0.03, '#000'); }
-      function drawFish(col){ const {base}=withPalette(col); fillEllipse(N*0.46,N*0.60,N*0.28,N*0.16,base); fillTriangle(N*0.20,N*0.60, N*0.06,N*0.52, N*0.06,N*0.68, base); fillTriangle(N*0.46,N*0.50, N*0.34,N*0.60, N*0.46,N*0.60, darken(base,.2)); fillCircle(N*0.62,N*0.58,N*0.03,'#111'); }
-      function drawCar(col){ const {base}=withPalette(col); fillRect(N*0.18,N*0.60,N*0.64,N*0.18, base); fillRect(N*0.34,N*0.50,N*0.34,N*0.12, darken(base,.2)); fillRect(N*0.38,N*0.54,N*0.24,N*0.08, '#b3e5fc'); fillCircle(N*0.32,N*0.80,N*0.08,'#222'); fillCircle(N*0.68,N*0.80,N*0.08,'#222'); }
-      function drawShip(col){ const {base}=withPalette(col); fillTriangle(N*0.18,N*0.72, N*0.82,N*0.72, N*0.64,N*0.84, base); fillRect(N*0.54,N*0.30,N*0.03,N*0.44,'#5d4037'); fillTriangle(N*0.56,N*0.32, N*0.56,N*0.56, N*0.76,N*0.48, '#ffffff'); for (let i=0;i<3;i++){ fillEllipse(N*(0.20+i*0.22), N*0.92, N*0.12, N*0.06, '#90caf9'); } }
-      function drawMushroom(col){ const {base}=withPalette(col); fillEllipse(N*0.5,N*0.50,N*0.34,N*0.22, base); fillRect(N*0.44,N*0.62,N*0.12,N*0.22, '#f5deb3'); for (let i=0;i<4;i++){ fillCircle(N*(0.34+i*0.12), N*0.50, N*0.05, '#ffffff'); } }
-      function drawSword(col){ const blade=col; fillRect(N*0.48,N*0.22,N*0.04,N*0.46, blade); fillRect(N*0.46,N*0.22,N*0.02,N*0.46, lighten(blade,.25)); fillRect(N*0.40,N*0.56,N*0.20,N*0.06, '#8d6e63'); fillRect(N*0.48,N*0.62,N*0.04,N*0.18, '#5d4037'); fillCircle(N*0.50,N*0.82,N*0.04,'#3e2723'); }
-      function drawShield(col){ const {base}=withPalette(col); fillEllipse(N*0.5,N*0.52,N*0.28,N*0.36, base); fillEllipse(N*0.5,N*0.52,N*0.24,N*0.32, darken(base,.3)); fillRect(N*0.48,N*0.30,N*0.04,N*0.42, lighten(base,.25)); fillRect(N*0.36,N*0.48,N*0.28,N*0.04, lighten(base,.25)); }
-      function drawFlower(col){ const {base}=withPalette(col); const cx=N*0.5, cy=N*0.55; for (let i=0;i<6;i++){ const a=i*Math.PI/3; fillEllipse(cx+Math.cos(a)*N*0.18, cy+Math.sin(a)*N*0.12, N*0.14, N*0.10, base); } fillCircle(cx, cy, N*0.10, '#ffd166'); fillRect(N*0.48,N*0.60,N*0.04,N*0.26,'#2e7d32'); }
-      function drawCactus(col){ const {base}=withPalette(col); fillRect(N*0.48,N*0.38,N*0.08,N*0.34, base); fillRect(N*0.36,N*0.50,N*0.08,N*0.14, base); fillRect(N*0.58,N*0.50,N*0.08,N*0.14, base); fillRect(N*0.30,N*0.72,N*0.40,N*0.06,'#8d6e63'); }
-      function drawCloud(col){ const {base}=withPalette(col); fillEllipse(N*0.40,N*0.52,N*0.22,N*0.14, base); fillEllipse(N*0.54,N*0.50,N*0.24,N*0.16, base); fillEllipse(N*0.30,N*0.56,N*0.18,N*0.12, base); fillEllipse(N*0.66,N*0.56,N*0.20,N*0.12, base); }
-      function drawSun(col){ const {base}=withPalette(col); fillCircle(N*0.5,N*0.52,N*0.28, base); for (let i=0;i<8;i++){ const a=i*Math.PI/4; fillTriangle(N*0.5,N*0.52, N*0.5+Math.cos(a)*N*0.38, N*0.52+Math.sin(a)*N*0.38, N*0.5+Math.cos(a+0.22)*N*0.32, N*0.52+Math.sin(a+0.22)*N*0.32, base); } }
-      function drawMoon(col){ const {base}=withPalette(col); fillCircle(N*0.58,N*0.52,N*0.26, base); fillCircle(N*0.66,N*0.52,N*0.26, transparent?'#0000':bgColor); }
-      function drawSnowflake(col){ const {base}=withPalette(col); const cx=N*0.5, cy=N*0.52; for (let i=0;i<6;i++){ const a=i*Math.PI/3; const x2=cx+Math.cos(a)*N*0.30, y2=cy+Math.sin(a)*N*0.30; const steps=40; for (let t=0;t<=steps;t++){ const x=Math.round(cx+(x2-cx)*t/steps), y=Math.round(cy+(y2-cy)*t/steps); px(x,y,base); } } }
-      function drawSmiley(col){ const face=col; fillCircle(N*0.5,N*0.52,N*0.36, face); fillCircle(N*0.38,N*0.44,N*0.05,'#111'); fillCircle(N*0.62,N*0.44,N*0.05,'#111'); for (let x=0;x<N;x++){ const y=Math.round(N*0.64 + 0.10*Math.sin((x/N)*Math.PI)); px(x,y,'#111'); } }
-
-      const DRAW = { heart:drawHeart, cat:drawCat, dog:drawDog, rabbit:drawRabbit, robot:drawRobot, tree:drawTree, mountain:drawMountain, house:drawHouse, star:drawStar, skull:drawSkull, ghost:drawGhost, bird:drawBird, fish:drawFish, car:drawCar, ship:drawShip, mushroom:drawMushroom, sword:drawSword, shield:drawShield, flower:drawFlower, cactus:drawCactus, cloud:drawCloud, sun:drawSun, moon:drawMoon, snowflake:drawSnowflake, smiley:drawSmiley };
+      const WORD_RE = /\p{L}+/gu;
+      function tokenizeLexical(text){ const raw=(text||'').toLowerCase().match(WORD_RE)||[]; const seen=new Set(); const out=[]; for (const w of raw){ if (w.length<2||seen.has(w)) continue; seen.add(w); out.push(w); if (out.length>=8) break; } return out; }
+      const cleanDefinition = (def)=>String(def||'').replace(/\s+/g,' ').trim();
+      async function fetchJSONWithTimeout(url, timeout=3000){ const ctrl=new AbortController(); const id=setTimeout(()=>ctrl.abort(), timeout); try{ const res=await fetch(url,{signal:ctrl.signal}); if (!res.ok) return null; return await res.json(); }catch(e){ return null; } finally{ clearTimeout(id); } }
+      async function getEnglishDefinitions(word){ const defs=[]; const dict=await fetchJSONWithTimeout(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`,3500); if (Array.isArray(dict)){ for (const entry of dict){ const meanings=entry?.meanings||[]; for (const meaning of meanings){ for (const item of meaning?.definitions||[]){ const txt=cleanDefinition(item?.definition); if (txt && !defs.includes(txt)) defs.push(txt); if (defs.length>=3) break; } if (defs.length>=3) break; } if (defs.length>=3) break; } } if (defs.length<2){ const alt=await fetchJSONWithTimeout(`https://api.datamuse.com/words?sp=${encodeURIComponent(word)}&md=d&max=2`,2500); if (Array.isArray(alt)){ for (const entry of alt){ if (Array.isArray(entry?.defs)){ for (const raw of entry.defs){ const txt=cleanDefinition(String(raw).replace(/^[a-z]+\t/i,'')); if (txt && !defs.includes(txt)) defs.push(txt); if (defs.length>=3) break; } } if (defs.length>=3) break; } } } return defs.slice(0,3); }
+      async function getWikipediaSnippets(word, lang){ const url=`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(word)}`; const data=await fetchJSONWithTimeout(url,2500); if (!data||!data.extract) return []; return cleanDefinition(data.extract).split(/[.!?]/).map(cleanDefinition).filter(Boolean).slice(0,2); }
+      async function collectLexicalHints(text){ const tokens=tokenizeLexical(text); const out=[]; for (const token of tokens){ let defs=[]; if (/^[a-z]+$/.test(token)){ defs=await getEnglishDefinitions(token); if (defs.length<2) defs=[...defs, ...await getWikipediaSnippets(token,'en')]; }
+        else if (/[가-힣]/.test(token)){ defs=await getWikipediaSnippets(token,'ko'); if (defs.length<1) defs=[...defs, ...await getWikipediaSnippets(token,'en')]; }
+        else { defs=await getWikipediaSnippets(token,'en'); }
+        defs=defs.filter(Boolean);
+        if (defs.length){ out.push({ word: token, definitions: defs.slice(0,3) }); }
+        if (out.length>=6) break;
+      }
+      return out; }
+      function hintsToContext(hints){ if (!hints?.length) return 'none'; return hints.map(h=>`${h.word}: ${h.definitions.join('; ')}`).join('\n'); }
+      function collectDefinitionText(hints){ return hints.map(h=>h.definitions.join(' ')).join(' ').toLowerCase(); }
+      function buildSemanticProfile(text, hints){ const corpus=(`${text||''} ${collectDefinitionText(hints)}`).toLowerCase(); const hasAny=(...words)=>words.some(w=>corpus.includes(w)); return {
+        animal: hasAny('animal','mammal','creature','beast','bird','fish','insect','reptile','feline','canine','amphibian','fauna'),
+        plant: hasAny('plant','tree','flower','leaf','flora','vine','grass','moss','cactus','bloom','seed','herb','fruit'),
+        person: hasAny('person','human','people','character','face','figure','portrait','hero','villain','girl','boy','man','woman'),
+        structure: hasAny('building','house','castle','tower','temple','bridge','structure','architecture','home','palace','fortress'),
+        vehicle: hasAny('vehicle','car','ship','boat','vessel','plane','rocket','train','transport','automobile'),
+        weapon: hasAny('weapon','sword','blade','shield','gun','rifle','axe','bow','armor','armour'),
+        technology: hasAny('robot','machine','device','android','cyber','digital','technology','computer','mecha','droid'),
+        weather: hasAny('weather','cloud','rain','storm','snow','wind','thunder','lightning','climate'),
+        celestial: hasAny('space','star','sun','moon','planet','galaxy','cosmic','astral','comet','sky','constellation'),
+        water: hasAny('water','sea','ocean','river','lake','wave','aquatic','marine'),
+        fire: hasAny('fire','flame','ember','lava','blaze','inferno','heat'),
+        nature: hasAny('mountain','forest','landscape','valley','hill','meadow','scene'),
+        food: hasAny('food','fruit','vegetable','cake','dessert','drink','meal','candy','bread'),
+        symbol: hasAny('symbol','icon','logo','emblem','sigil','badge'),
+        mythic: hasAny('myth','spirit','ghost','dragon','monster','fairy','demon','legendary'),
+      }; }
+      function summarizeHintsForLog(hints){ if (!hints?.length) return ''; return hints.map(h=>`${h.word}: ${h.definitions[0]}`).join(' | '); }
 
       let hf = null;
       let llm = null;
-      async function ensureLLM(modelKey){
-        if (modelKey!=='llm-ettin'){ llm = null; return; }
+      async function ensureLLM(){
         if (llm) return;
         log('모델 로드 중...');
         hf = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.0');
@@ -239,11 +239,302 @@
       }
       function extractJSON(text){ const code=/```(?:json)?\s*([\s\S]*?)```/i.exec(text); const body=code?code[1]:(text.match(/\{[\s\S]*\}/)||[''])[0]; let s=(body||'').trim(); s=s.replace(/(\w+)\s*:/g,'"$1":'); s=s.replace(/'/g,'"'); s=s.replace(/,(\s*[}\]])/g,'$1'); return JSON.parse(s); }
       function normalizeTemplate(t, size){ const s=Math.max(4,Math.min(32, t?.size||size)); let data=t?.data||[]; if (!Array.isArray(data)) data=[]; data=data.slice(0,s).map(r=> typeof r==='string'? r.replace(/\s/g,'').split('').slice(0,s): Array.isArray(r)? r.slice(0,s).map(String): []); while (data.length<s) data.push(Array(s).fill('0')); data=data.map(r=> r.length<s? r.concat(Array(s-r.length).fill('0')): r); const pal = Object.fromEntries(Object.entries(t?.palette||{}).map(([k,v])=>[String(k),String(v)])); return { size:s, palette:pal, data }; }
-      function drawTemplate(tpl){ clearAll(); const s=tpl.size; for (let y=0;y<s;y++){ const row=tpl.data[y]; for (let x=0;x<s;x++){ const code = String(row[x]); if (code==='0'||code==='.'||code===' ') continue; const color = tpl.palette[code] || '#000000'; const ix = Math.floor(x/s*N), iy = Math.floor(y/s*N); px(ix,iy,color); } } }
+      function drawTemplate(tpl){
+        clearAll();
+        const prev = mirrorOverride;
+        mirrorOverride = false;
+        const s=tpl.size;
+        for (let y=0;y<s;y++){
+          const row=tpl.data[y];
+          for (let x=0;x<s;x++){
+            const code = String(row[x]);
+            if (code==='0'||code==='.'||code===' ') continue;
+            const color = tpl.palette[code] || '#000000';
+            const ix = Math.floor(x/s*N), iy = Math.floor(y/s*N);
+            px(ix,iy,color,false);
+          }
+        }
+        mirrorOverride = prev;
+      }
+
+      function buildLLMPrompt({ text, target, lexical, colorHint }){
+        const palette = PALETTES[paletteKey] || [];
+        const paletteLine = palette.length? `Palette (${paletteKey}): ${palette.join(', ')}.` : 'Palette: choose harmonious #RRGGBB colours.';
+        const lexicalSection = hintsToContext(lexical);
+        const styleLine = styleMode==='shaded'
+          ? 'Apply soft shading with lighter highlights and darker shadows.'
+          : styleMode==='dither'
+          ? 'Use patterned dithering or checks to imply shading.'
+          : 'Keep the fills mostly flat without extra shading.';
+        const transparencyLine = transparent
+          ? 'Leave background pixels as 0 (transparent).'
+          : `If a background is required fill unused pixels with ${bgColor}; 0 still indicates transparency.`;
+        const colourLine = colorHint ? `Incorporate hues related to ${colorHint} when it fits the subject.` : 'Choose colours that match the subject.';
+        const lexicalLine = lexicalSection==='none'
+          ? 'Lexical notes: none. Interpret the request literally using dictionary meaning.'
+          : `Lexical notes:\n${lexicalSection}`;
+        return [
+          'You are LexiPixel, a pixel art generator that must respond with JSON only.',
+          `Design a ${target}x${target} pixel art template for "${text}".`,
+          'Focus on the literal dictionary meaning of every noun and adjective.',
+          lexicalLine,
+          colourLine,
+          paletteLine,
+          styleLine,
+          transparencyLine,
+          `Return a JSON object with keys "size", "palette", "data".`,
+          `"size" must be ${target}.`,
+          'Limit "palette" to at most 8 string-digit keys ("1","2",...) mapping to "#RRGGBB" colours.',
+          `Provide exactly ${target} strings in "data", each of length ${target}, using only "0" for transparent pixels and palette digits for coloured pixels.`,
+          'Do not add commentary, explanations, or markdown outside of the JSON object.'
+        ].join('\n');
+      }
+
+      async function generateLexicalArt(text){
+        const target = N<=16?16:(N<=24?24:32);
+        const lexical = await collectLexicalHints(text);
+        const colorHint = primaryFromText(text, fallbackPrimary(text));
+        try {
+          await ensureLLM();
+          const prompt = buildLLMPrompt({ text, target, lexical, colorHint });
+          const maxTokens = target>=32?360:(target>=24?260:220);
+          log('LLM 생성 중...');
+          const out = await llm(prompt,{ max_new_tokens:maxTokens, do_sample:false });
+          const raw = String(out?.[0]?.generated_text||'').trim();
+          const json = extractJSON(raw);
+          const tpl = normalizeTemplate(json, target);
+          outlineColor = darken(colorHint || fallbackPrimary(text), .55);
+          drawTemplate(tpl);
+          drawOutline();
+          applyBackground();
+          drawGridOverlay();
+          const lexLog = summarizeHintsForLog(lexical);
+          log(`완료(LLM)${lexLog?` — ${lexLog}`:''}`);
+          return { lexical, colorHint };
+        } catch (error){
+          console.error(error);
+          throw { error, lexical, colorHint };
+        }
+      }
+
+      function renderCreature(profile, colors){
+        const cx=N*0.5, cy=N*0.56;
+        const headR=N*(0.28+0.06*rng());
+        fillCircle(cx,cy,headR,colors.base);
+        const earSpan=headR*0.9;
+        if (profile.mythic){
+          fillTriangle(cx-earSpan*0.5, cy-headR*1.2, cx-headR*0.2, cy-headR*0.2, cx-earSpan, cy-headR*0.05, colors.dark);
+          fillTriangle(cx+earSpan*0.5, cy-headR*1.2, cx+headR*0.2, cy-headR*0.2, cx+earSpan, cy-headR*0.05, colors.dark);
+        } else {
+          fillCircle(cx-earSpan*0.4, cy-headR*0.9, headR*0.38, colors.light);
+          fillCircle(cx+earSpan*0.4, cy-headR*0.9, headR*0.38, colors.light);
+        }
+        if (profile.person){
+          const hair = darken(colors.accent,0.25);
+          fillRect(cx-headR, cy-headR*1.15, headR*2, headR*0.55, hair);
+        }
+        const snoutColor = lighten(colors.base,0.2);
+        fillEllipse(cx, cy+headR*0.18, headR*0.9, headR*0.55, snoutColor);
+        const eyeOffset=headR*0.45, eyeR=headR*0.18;
+        fillCircle(cx-eyeOffset, cy-headR*0.05, eyeR, '#111');
+        fillCircle(cx+eyeOffset, cy-headR*0.05, eyeR, '#111');
+        fillCircle(cx-eyeOffset, cy-headR*0.10, eyeR*0.40, lighten(colors.light,0.25));
+        fillCircle(cx+eyeOffset, cy-headR*0.10, eyeR*0.40, lighten(colors.light,0.25));
+        fillEllipse(cx, cy+headR*0.35, headR*0.42, headR*0.22, profile.person?colors.accent:darken(colors.base,0.25));
+        fillCircle(cx, cy+headR*0.32, headR*0.16, '#111');
+        if (profile.water){
+          const finColor = lighten(colors.accent,0.1);
+          fillEllipse(cx-headR*0.9, cy, headR*0.4, headR*0.2, finColor);
+          fillEllipse(cx+headR*0.9, cy, headR*0.4, headR*0.2, finColor);
+        }
+        return 'creature';
+      }
+
+      function renderFlora(profile, colors){
+        const stemColor = darken(colors.base,0.4);
+        fillRect(N*0.48, N*0.52, N*0.04, N*0.32, stemColor);
+        fillEllipse(N*0.40, N*0.64, N*0.16, N*0.10, colors.dark);
+        fillEllipse(N*0.60, N*0.64, N*0.16, N*0.10, colors.dark);
+        const petals = 6 + Math.floor(rng()*2);
+        const cx=N*0.5, cy=N*0.46;
+        for (let i=0;i<petals;i++){ const a=i*Math.PI*2/petals; fillEllipse(cx+Math.cos(a)*N*0.16, cy+Math.sin(a)*N*0.12, N*0.14, N*0.10, colors.base); }
+        fillCircle(cx, cy, N*0.10, colors.accent);
+        if (profile.food){ for (let i=0;i<4;i++){ const ang=rng()*Math.PI*2; fillCircle(cx+Math.cos(ang)*N*0.18, cy+Math.sin(ang)*N*0.18, N*0.05, lighten(colors.accent,0.2)); } }
+        return 'flora';
+      }
+
+      function renderStructure(profile, colors){
+        const width=N*0.58, height=N*0.30;
+        const x0=N*0.5-width/2, y0=N*0.58;
+        fillRect(x0, y0, width, height, colors.base);
+        fillTriangle(x0-1, y0, x0+width+1, y0, N*0.5, y0-N*0.24, colors.dark);
+        fillRect(N*0.48, y0+height*0.25, N*0.08, height*0.75, darken(colors.base,0.4));
+        fillRect(x0+width*0.15, y0+height*0.2, width*0.20, height*0.25, lighten(colors.light,0.2));
+        fillRect(x0+width*0.65, y0+height*0.2, width*0.20, height*0.25, lighten(colors.light,0.2));
+        if (profile.technology){ fillRect(N*0.35, y0+height*0.45, width*0.30, height*0.08, colors.accent); }
+        return 'structure';
+      }
+
+      function renderVehicle(profile, colors){
+        const bodyW=N*0.60, bodyH=N*0.16, bodyY=N*0.72;
+        const x0=N*0.5-bodyW/2;
+        if (profile.water){
+          fillTriangle(x0, bodyY, x0+bodyW, bodyY, x0+bodyW*0.6, bodyY+N*0.10, colors.dark);
+          fillRect(N*0.52, bodyY-bodyH*1.6, N*0.02, bodyH*1.6, darken(colors.base,0.35));
+          fillTriangle(N*0.53, bodyY-bodyH*1.6, N*0.53, bodyY-bodyH*0.4, N*0.70, bodyY-bodyH, lighten(colors.light,0.2));
+        } else if (profile.celestial){
+          fillRect(x0, bodyY-bodyH, bodyW, bodyH, colors.base);
+          fillTriangle(x0, bodyY-bodyH, N*0.5, bodyY-bodyH*1.8, x0+bodyW, bodyY-bodyH, colors.dark);
+          fillRect(N*0.5-bodyW*0.08, bodyY-bodyH*1.4, bodyW*0.16, bodyH*0.7, lighten(colors.light,0.1));
+        } else {
+          fillRect(x0, bodyY-bodyH, bodyW, bodyH, colors.base);
+          fillRect(x0+bodyW*0.15, bodyY-bodyH*1.1, bodyW*0.70, bodyH*0.5, lighten(colors.light,0.2));
+          fillCircle(x0+bodyW*0.20, bodyY, N*0.08, '#222');
+          fillCircle(x0+bodyW*0.80, bodyY, N*0.08, '#222');
+        }
+        return 'vehicle';
+      }
+
+      function renderWeapon(profile, colors){
+        const blade=lighten(colors.base,0.2);
+        fillRect(N*0.49, N*0.24, N*0.02, N*0.40, blade);
+        fillRect(N*0.47, N*0.24, N*0.02, N*0.40, darken(blade,0.2));
+        fillRect(N*0.45, N*0.46, N*0.10, N*0.06, colors.dark);
+        fillRect(N*0.49, N*0.52, N*0.02, N*0.20, darken(colors.base,0.4));
+        fillCircle(N*0.50, N*0.74, N*0.05, colors.accent);
+        return 'weapon';
+      }
+
+      function renderLandscape(profile, colors){
+        const base=colors.base;
+        fillTriangle(N*0.14,N*0.88, N*0.48,N*0.40, N*0.82,N*0.88, base);
+        fillTriangle(N*0.30,N*0.88, N*0.56,N*0.48, N*0.78,N*0.88, darken(base,0.25));
+        fillTriangle(N*0.45,N*0.55, N*0.56,N*0.40, N*0.67,N*0.55, lighten(colors.light,0.25));
+        if (profile.plant){
+          fillEllipse(N*0.24,N*0.78,N*0.18,N*0.10, colors.dark);
+          fillEllipse(N*0.70,N*0.80,N*0.20,N*0.12, colors.dark);
+        }
+        return 'landscape';
+      }
+
+      function renderSymbol(profile, colors){
+        const cx=N*0.5, cy=N*0.5;
+        fillEllipse(cx, cy, N*0.24, N*0.24, colors.base);
+        fillRect(cx-N*0.05, cy-N*0.22, N*0.10, N*0.44, colors.dark);
+        fillRect(cx-N*0.22, cy-N*0.05, N*0.44, N*0.10, colors.dark);
+        fillCircle(cx, cy, N*0.10, colors.accent);
+        return 'symbol';
+      }
+
+      function renderAbstractPattern(colors){
+        for (let i=0;i<14;i++){
+          const t=Math.floor(rng()*3);
+          const cx=rng()*(N-1);
+          const cy=rng()*(N-1);
+          const size=N*(0.08 + rng()*0.18);
+          const col=i%3===0?colors.accent:(i%3===1?colors.base:colors.light);
+          if (t===0) fillCircle(cx, cy, size*0.5, col);
+          else if (t===1) fillRect(cx-size*0.5, cy-size*0.5, size, size, col);
+          else fillTriangle(cx-size*0.5, cy+size*0.5, cx+size*0.5, cy+size*0.5, cx, cy-size*0.6, col);
+        }
+        return 'abstract';
+      }
+
+      function overlayCelestial(profile, colors){
+        const cx=N*0.78, cy=N*0.26;
+        const sunColor = lighten(colors.accent,0.15);
+        fillCircle(cx, cy, N*0.14, sunColor);
+        for (let i=0;i<8;i++){ const a=i*Math.PI/4; fillTriangle(cx, cy, cx+Math.cos(a)*N*0.20, cy+Math.sin(a)*N*0.20, cx+Math.cos(a+0.25)*N*0.15, cy+Math.sin(a+0.25)*N*0.15, sunColor); }
+      }
+
+      function overlayWeather(profile, colors){
+        const cloudColor = lighten(colors.light,0.25);
+        const baseY=N*0.30;
+        fillEllipse(N*0.30, baseY, N*0.18, N*0.10, cloudColor);
+        fillEllipse(N*0.46, baseY-N*0.04, N*0.22, N*0.12, cloudColor);
+        fillEllipse(N*0.62, baseY, N*0.18, N*0.10, cloudColor);
+        if (profile.water){
+          for (let i=0;i<6;i++){ const x = N*(0.30+i*0.08); for (let j=0;j<3;j++){ px(Math.min(N-1, Math.round(x+j%2)), Math.min(N-1, Math.round(baseY+N*0.12+j)), colors.accent); } }
+        } else {
+          for (let i=0;i<4;i++){ fillCircle(N*(0.32+i*0.12), baseY-N*0.14, N*0.03, lighten(colors.accent,0.2)); }
+        }
+      }
+
+      function overlayWater(colors){
+        const waveColor = lighten(colors.accent,0.1);
+        for (let i=0;i<5;i++){ const cx=N*(0.15+i*0.18), cy=N*(0.84-((i%2)*0.03)); fillEllipse(cx, cy, N*0.16, N*0.05, waveColor); }
+      }
+
+      function overlayFire(colors){
+        const flameColor = lighten(colors.accent,0.15);
+        for (let i=0;i<3;i++){ const baseY=N*0.74 - i*N*0.05; fillTriangle(N*0.46, baseY+N*0.10, N*0.54, baseY+N*0.10, N*0.50, baseY-N*0.12, flameColor); }
+      }
+
+      function overlayTechnology(colors){
+        const circuit = lighten(colors.dark,0.30);
+        for (let i=0;i<4;i++){
+          const x = Math.round(N*(0.25 + i*0.15));
+          for (let y=Math.round(N*0.36); y<=Math.round(N*0.78); y++){ if ((y+i)%3===0) px(x,y,circuit); }
+          fillCircle(x, Math.round(N*0.36), N*0.02, circuit);
+          fillCircle(x, Math.round(N*0.78), N*0.02, circuit);
+        }
+      }
+
+      function overlayMythic(colors){
+        const glow = lighten(colors.light,0.35);
+        fillCircle(N*0.5, N*0.30, N*0.12, glow);
+        for (let i=0;i<6;i++){ const ang=(Math.PI*2*i)/6 + rng()*0.3; fillCircle(N*0.5+Math.cos(ang)*N*0.22, N*0.30+Math.sin(ang)*N*0.22, N*0.04, glow); }
+      }
+
+      function overlayFood(colors){
+        const seed = lighten(colors.accent,0.25);
+        for (let i=0;i<8;i++){ const ang=rng()*Math.PI*2; const radius=N*0.18*rng(); fillCircle(N*0.5+Math.cos(ang)*radius, N*0.65+Math.sin(ang)*radius*0.5, N*0.03, seed); }
+      }
+
+      function generateProceduralArt(text, hints){
+        clearAll();
+        mirrorOverride = null;
+        const lexical = hints||[];
+        const profile = buildSemanticProfile(text, lexical);
+        const primary = primaryFromText(text, fallbackPrimary(text));
+        const colors = withPalette(primary);
+        outlineColor = darken(primary, .55);
+        const summary = [];
+        let base = null;
+        if (profile.animal || profile.person){ base = renderCreature(profile, colors); }
+        else if (profile.plant){ base = renderFlora(profile, colors); }
+        else if (profile.structure){ base = renderStructure(profile, colors); }
+        else if (profile.vehicle){ base = renderVehicle(profile, colors); }
+        else if (profile.weapon){ base = renderWeapon(profile, colors); }
+        else if (profile.nature){ base = renderLandscape(profile, colors); }
+        else if (profile.symbol){ base = renderSymbol(profile, colors); }
+        else { base = renderAbstractPattern(colors); }
+        if (base) summary.push(base);
+        if (profile.plant && base!=='flora') summary.push(renderFlora(profile, colors));
+        if (profile.structure && base!=='structure') summary.push(renderStructure(profile, colors));
+        if (profile.vehicle && base!=='vehicle') summary.push(renderVehicle(profile, colors));
+        if (profile.weapon && base!=='weapon') summary.push(renderWeapon(profile, colors));
+        if (profile.nature && base!=='landscape') summary.push(renderLandscape(profile, colors));
+        if (profile.symbol && base!=='symbol') summary.push(renderSymbol(profile, colors));
+        if (profile.celestial){ overlayCelestial(profile, colors); summary.push('celestial'); }
+        if (profile.weather){ overlayWeather(profile, colors); summary.push('weather'); }
+        if (profile.water){ overlayWater(colors); summary.push('water'); }
+        if (profile.fire){ overlayFire(colors); summary.push('fire'); }
+        if (profile.technology){ overlayTechnology(colors); summary.push('tech'); }
+        if (profile.mythic){ overlayMythic(colors); summary.push('mythic'); }
+        if (profile.food){ overlayFood(colors); summary.push('food'); }
+        drawOutline();
+        applyBackground();
+        drawGridOverlay();
+        const lexLog = summarizeHintsForLog(lexical);
+        const summaryText = summary.filter(Boolean).join(', ');
+        log(`완료(Procedural): ${summaryText||'abstract'}${lexLog?` — ${lexLog}`:''}`);
+      }
 
       async function generate(){
         $('#generate').disabled = true; $('#remix').disabled = true;
-        const text = $('#prompt').value.trim(); if (!text) { $('#generate').disabled = false; $('#remix').disabled = false; return; }
+        const text = $('#prompt').value.trim();
+        if (!text){ $('#generate').disabled = false; $('#remix').disabled = false; return; }
         paletteKey = $('#palette').value;
         styleMode = $('#style').value;
         symX = $('#symx').checked;
@@ -253,52 +544,21 @@
         bgColor = $('#bg').value;
         setSize(parseInt($('#size').value,10)||24);
         setSeedFromInputs();
-        clearAll();
-        const model = $('#gen').value;
-        if (model==='llm-ettin'){
-          try{
-            await ensureLLM(model);
-            const target = N<=16?16:(N<=24?24:32);
-            const prompt = [
-              'You are a pixel art generator that must reply with JSON only.',
-              `Create a ${target}x${target} template for: "${text}".`,
-              'Return an object with keys "size", "palette", "data".',
-              `"size" must be ${target}.`,
-              '"palette" must map string digits like "1","2",... to "#RRGGBB" colours.',
-              `Provide exactly ${target} rows in "data", each a string of length ${target}.`,
-              'Use only characters 0 or palette keys in the data. 0 means transparent.',
-              'Do not add commentary or formatting outside the JSON object.'
-            ].join('\n');
-            log('LLM 생성 중...');
-            const out = await llm(prompt,{ max_new_tokens:220, do_sample:false });
-            const raw = String(out?.[0]?.generated_text||'').trim();
-            const json = extractJSON(raw);
-            const tpl = normalizeTemplate(json, target);
-            drawTemplate(tpl);
-            drawOutline();
-            applyBackground();
-            drawGridOverlay();
-            log('완료(LLM)');
-          }catch(e){
-            console.error(e);
-            log('LLM 실패 → 규칙 기반으로 생성합니다.');
-            await generateRule(text);
+        const mode = $('#gen').value;
+        try {
+          if (mode==='procedural'){
+            const hints = await collectLexicalHints(text);
+            generateProceduralArt(text, hints);
+          } else {
+            await generateLexicalArt(text);
           }
-        } else {
-          await generateRule(text);
+        } catch (err){
+          console.error(err);
+          const hints = err?.lexical || [];
+          log('LLM 실패 → 절차적 합성으로 전환합니다.');
+          generateProceduralArt(text, hints);
         }
         $('#generate').disabled = false; $('#remix').disabled = false;
-      }
-
-      async function generateRule(text){
-        const cat = categorize(text);
-        const primary = primaryFromText(text, ({heart:'#e53935',cat:'#f6b26b',dog:'#c6a27e',rabbit:'#ddd5e9',robot:'#9aa0a6',tree:'#2ecc71',mountain:'#8d99ae',house:'#ff8c42',star:'#ffd700',skull:'#eaeaea',ghost:'#eaf2ff',bird:'#4fc3f7',fish:'#00bcd4',car:'#e91e63',ship:'#6c757d',mushroom:'#d32f2f',sword:'#b0bec5',shield:'#607d8b',flower:'#ff66b3',cactus:'#2e7d32',cloud:'#cfe3ff',sun:'#ffd166',moon:'#cfd8dc',snowflake:'#b3e5fc',smiley:'#ffeb3b'})[cat]||'#999999');
-        const draw = DRAW[cat] || DRAW.heart;
-        draw(primary);
-        drawOutline();
-        applyBackground();
-        drawGridOverlay();
-        log(`완료: ${cat}`);
       }
 
       $('#generate').addEventListener('click', generate);
