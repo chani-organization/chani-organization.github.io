@@ -172,9 +172,19 @@
             id: 'HuggingFaceTB/SmolLM2-1.7B-Instruct',
             label: 'SmolLM2 1.7B Instruct',
             device: 'webgpu',
-            dtype: 'auto',
-            context: 'Extended context window (see model card)',
+            dtype: 'fp16',
+            context: '1.7B parameter instruction-tuned model (≈8K context, WebGPU recommended).',
             promptLimit: MAX_GPU_PROMPT_CHARS,
+            fallbackNotice:
+              'Primary SmolLM2 WebGPU load failed. Trying the Phi-3 Mini quantized fallback next.',
+          },
+          {
+            id: 'onnx-community/Phi-3-mini-4k-instruct-q4f16',
+            label: 'Phi-3 Mini 4K Instruct (ONNX q4f16)',
+            device: 'webgpu',
+            dtype: 'auto',
+            context: 'Quantized Phi-3 Mini fallback (~4K context, mixed int4/float16).',
+            promptLimit: 750,
           },
         ],
         wasm: [
@@ -183,8 +193,18 @@
             label: 'SmolLM2 1.7B Instruct (WASM)',
             device: 'wasm',
             dtype: 'auto',
-            context: 'Extended context window (see model card)',
+            context: '1.7B parameter instruction-tuned model (CPU/WASM load is heavy; expect long init).',
             promptLimit: MAX_CPU_PROMPT_CHARS,
+            fallbackNotice:
+              'SmolLM2 WASM initialization failed. Reverting to the Phi-3 Mini quantized fallback.',
+          },
+          {
+            id: 'onnx-community/Phi-3-mini-4k-instruct-q4f16',
+            label: 'Phi-3 Mini 4K Instruct (ONNX q4f16, WASM)',
+            device: 'wasm',
+            dtype: 'auto',
+            context: 'Quantized Phi-3 Mini fallback (~4K context, mixed int4/float16) for CPU execution.',
+            promptLimit: 500,
           },
         ],
       };
@@ -967,8 +987,8 @@
 
       clearCanvas(24);
       const hardwareMessage = navigator.gpu
-        ? 'WebGPU detected. The app will load google/gemma-3n-E4B-it-litert-lm for the best available experience.'
-        : 'WebGPU unavailable. The app will still load google/gemma-3n-E4B-it-litert-lm via WASM—expect slower responses.';
+        ? 'WebGPU detected. Attempting HuggingFaceTB/SmolLM2-1.7B-Instruct first; falling back to the Phi-3 Mini quantized build if needed.'
+        : 'WebGPU unavailable. Trying SmolLM2 via WASM (this may take a while); if it fails, we automatically use the Phi-3 Mini quantized fallback.';
       appendMessage(
         'assistant',
         'System',
