@@ -200,6 +200,15 @@
         statusEl.textContent = text;
       }
 
+      function sanitizePrompt(text) {
+        if (!text) return '';
+        return text
+          .replace(/[\n\r\t]+/g, ' ')
+          .replace(/[\\/][nrt]/gi, ' ')
+          .replace(/\s{2,}/g, ' ')
+          .trim();
+      }
+
       function clearCanvas(size = 24) {
         canvas.width = size;
         canvas.height = size;
@@ -317,6 +326,31 @@
         return [];
       }
 
+      const STEP1_FILLER_PATTERN = /(Step\s*\d|Response|The following|List of|instructions?)/i;
+
+      function summarizeStep1(data) {
+        const subject = String(data?.subject || '').trim();
+        const traits = normalizeList(data?.traits).slice(0, 5);
+        const symbolism = normalizeList(data?.symbolism).slice(0, 5);
+        const notesList = normalizeList(data?.notes);
+        const notes = notesList.join('; ');
+
+        if (!subject || subject.length > 80 || STEP1_FILLER_PATTERN.test(subject)) {
+          return { valid: false, reason: 'Subject line missing or filled with meta text.' };
+        }
+        if (traits.length < 3 || traits.some((item) => item.length > 80 || STEP1_FILLER_PATTERN.test(item))) {
+          return { valid: false, reason: 'Traits must list at least three concise physical features.' };
+        }
+        if (symbolism.length < 2 || symbolism.some((item) => item.length > 80 || STEP1_FILLER_PATTERN.test(item))) {
+          return { valid: false, reason: 'Symbolism entries must describe emblematic cues.' };
+        }
+        if (!notes || notes.length > 160 || STEP1_FILLER_PATTERN.test(notes)) {
+          return { valid: false, reason: 'Notes field must contain a short, practical art direction note.' };
+        }
+
+        return { valid: true, subject, traits, symbolism, notes };
+      }
+
       function uniqueColors(values) {
         const set = new Set();
         for (const value of values) {
@@ -376,13 +410,28 @@
           'Return JSON only. Format: {"subject":"","traits":[""],"symbolism":[""],"notes":""}.',
           'Fill the template with real text, keep it factual, and avoid opinions.',
           'traits = at least three short physical features.',
-          'symbolism = at least two emblematic cues linked to the subject.'
+          'symbolism = at least two emblematic cues linked to the subject.',
+          'notes = at least one practical art direction tip.',
+          'Keep every value under 80 characters, describe concrete visuals, and do not repeat these instructions.'
         ].join('\n');
         const step1Raw = await generateText(step1Prompt, 220, 'Step 1');
-        const step1 = extractJSON(step1Raw);
-        const subject = String(step1.subject || userPrompt).trim();
-        const traits = normalizeList(step1.traits).slice(0, 5);
-        const symbolism = normalizeList(step1.symbolism).slice(0, 5);
+        let step1 = extractJSON(step1Raw);
+        let summary = summarizeStep1(step1);
+        if (!summary.valid) {
+          appendMessage('assistant', 'Step 1 – Validator', `${summary.reason} Retrying with clearer instructions.`);
+          setStatus('Step 1 retry – Requesting clearer details...');
+          const retryPrompt = [
+            step1Prompt,
+            'Reminder: Provide concrete descriptors only. Do not echo the prompt or mention steps, responses, or lists.',
+          ].join('\n');
+          const step1RetryRaw = await generateText(retryPrompt, 200, 'Step 1 Retry');
+          step1 = extractJSON(step1RetryRaw);
+          summary = summarizeStep1(step1);
+          if (!summary.valid) {
+            throw new Error('Step 1 did not return usable JSON after a retry.');
+          }
+        }
+        const { subject, traits, symbolism, notes } = summary;
 
         setStatus('Step 2/5 – Designing visual motifs...');
         const step2Prompt = [
@@ -390,6 +439,7 @@
           `Subject: ${subject}`,
           `Traits: ${traits.join(', ') || 'None'}`,
           `Symbolism: ${symbolism.join(', ') || 'None'}`,
+          `Notes: ${notes || 'None'}`,
           'Plan the main visuals to paint.',
           'Return JSON only. Format: {"motifs":[""],"featurePriority":[""],"silhouette":""}.',
           'Fill the template with real words and remove blank items.',
@@ -481,12 +531,18 @@
       }
 
       async function handleGenerate() {
-        const text = promptInput.value.trim();
-        if (!text) return;
-        if (text.length > promptLimit) {
+        const text = promptInput.value;
+        const sanitizedPrompt = sanitizePrompt(text);
+        if (!sanitizedPrompt) {
+          appendError('Prompt Needed', 'Please enter a description using letters and numbers.');
+          setStatus('No usable prompt detected. Enter a short description and try again.');
+          return;
+        }
+        promptInput.value = sanitizedPrompt;
+        if (sanitizedPrompt.length > promptLimit) {
           appendError(
             'Prompt Too Long',
-            `The request has ${text.length} characters. Please split it into chunks under ${promptLimit} characters to avoid context overflows.`,
+            `The request has ${sanitizedPrompt.length} characters. Please split it into chunks under ${promptLimit} characters to avoid context overflows.`,
           );
           setStatus(`Prompt exceeds the ${promptLimit}-character safety budget. Shorten the request and retry.`);
           return;
@@ -495,7 +551,7 @@
         generateBtn.disabled = true;
         setStatus('Preparing the LLM for a five-step dialogue...');
         try {
-          await runFiveStepDialogue(text);
+          await runFiveStepDialogue(sanitizedPrompt);
         } catch (error) {
           console.error(error);
           appendError('Error', error?.message || 'We could not generate pixel art. Please try again.');
