@@ -4,9 +4,9 @@
 
 ## 모델 및 하드웨어 대응
 
-- WebGPU가 감지되면 `onnx-community/TinyLlama-1.1B-Chat-v1.0`(q4) 모델을 우선 시도해 더 긴(약 2K 토큰) 컨텍스트를 제공합니다.
-- WebGPU 로딩에 실패하거나 GPU가 없으면 `onnx-community/ettin-decoder-150m-ONNX` 모델(q4/q8)을 자동으로 사용해 GTX 1050 급 환경에서도 무리 없이 동작하도록 구성되어 있습니다.
-- 프롬프트 길이는 기본적으로 700~1100자 사이로 제한하며, 초과 시 분할 입력을 안내합니다.
+- 우선 시도 모델: `HuggingFaceTB/SmolLM2-1.7B-Instruct` (약 1.7B 파라미터, 8K 컨텍스트). WebGPU 환경에서는 `fp16`으로, WASM/CPU 환경에서는 `auto` 정밀도로 로딩을 시도합니다. CPU 환경에서는 초기화에 수 분이 걸릴 수 있으니 로딩 진행률을 확인해 주세요.
+- 로드 실패 시 자동 폴백: `onnx-community/Phi-3-mini-4k-instruct-q4f16` (약 4K 토큰 윈도우, int4/float16 혼합 양자화). 초기화 실패 메시지와 함께 폴백 여부를 로그에 안내합니다.
+- 프롬프트 길이는 환경에 따라 600~900자로 가이드합니다. GPU(WebGPU) 사용 시 900자, CPU(WASM) 사용 시 600자를 넘기면 입력을 분할하도록 안내합니다.
 
 ## 파일 구성
 

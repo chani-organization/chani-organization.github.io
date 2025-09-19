@@ -156,7 +156,7 @@
       let hf = null;
       let llm = null;
       let llmPromise = null;
-      let promptLimit = navigator.gpu ? 1100 : 700;
+      let promptLimit = navigator.gpu ? 900 : 600;
       const SAFE_PROMPT_PATTERN = /[^\p{L}\p{N}\p{Zs}.,!?"'()\-]/gu;
 
       const DEFAULT_GENERATION_OPTIONS = {
@@ -164,36 +164,47 @@
         repetition_penalty: 1.1,
       };
 
-      const MAX_GPU_PROMPT_CHARS = 1100;
-      const MAX_CPU_PROMPT_CHARS = 700;
+      const MAX_GPU_PROMPT_CHARS = 900;
+      const MAX_CPU_PROMPT_CHARS = 600;
       const MODEL_CHOICES = {
         webgpu: [
           {
-            id: 'onnx-community/TinyLlama-1.1B-Chat-v1.0',
-            label: 'TinyLlama 1.1B Chat (q4)',
+            id: 'HuggingFaceTB/SmolLM2-1.7B-Instruct',
+            label: 'SmolLM2 1.7B Instruct',
             device: 'webgpu',
-            dtype: 'q4',
-            context: '≈2K token context window',
+            dtype: 'fp16',
+            context: '1.7B parameter instruction-tuned model (≈8K context, WebGPU recommended).',
             promptLimit: MAX_GPU_PROMPT_CHARS,
-            fallbackNotice: 'Falling back to a lighter 150M model to keep memory use low.',
+            fallbackNotice:
+              'Primary SmolLM2 WebGPU load failed. Trying the Phi-3 Mini quantized fallback next.',
           },
           {
-            id: 'onnx-community/ettin-decoder-150m-ONNX',
-            label: 'Ettin Decoder 150M (q4)',
+            id: 'onnx-community/Phi-3-mini-4k-instruct-q4f16',
+            label: 'Phi-3 Mini 4K Instruct (ONNX q4f16)',
             device: 'webgpu',
-            dtype: 'q4',
-            context: '≈1K token context window',
-            promptLimit: 850,
+            dtype: 'auto',
+            context: 'Quantized Phi-3 Mini fallback (~4K context, mixed int4/float16).',
+            promptLimit: 750,
           },
         ],
         wasm: [
           {
-            id: 'onnx-community/ettin-decoder-150m-ONNX',
-            label: 'Ettin Decoder 150M (q8)',
+            id: 'HuggingFaceTB/SmolLM2-1.7B-Instruct',
+            label: 'SmolLM2 1.7B Instruct (WASM)',
             device: 'wasm',
-            dtype: 'q8',
-            context: '≈1K token context window',
+            dtype: 'auto',
+            context: '1.7B parameter instruction-tuned model (CPU/WASM load is heavy; expect long init).',
             promptLimit: MAX_CPU_PROMPT_CHARS,
+            fallbackNotice:
+              'SmolLM2 WASM initialization failed. Reverting to the Phi-3 Mini quantized fallback.',
+          },
+          {
+            id: 'onnx-community/Phi-3-mini-4k-instruct-q4f16',
+            label: 'Phi-3 Mini 4K Instruct (ONNX q4f16, WASM)',
+            device: 'wasm',
+            dtype: 'auto',
+            context: 'Quantized Phi-3 Mini fallback (~4K context, mixed int4/float16) for CPU execution.',
+            promptLimit: 500,
           },
         ],
       };
@@ -976,8 +987,8 @@
 
       clearCanvas(24);
       const hardwareMessage = navigator.gpu
-        ? 'WebGPU detected. The app will try the upgraded TinyLlama 1.1B Chat (q4) model first for a longer context window.'
-        : 'WebGPU unavailable. The app will use the compact Ettin 150M model via WASM for broad compatibility.';
+        ? 'WebGPU detected. Attempting HuggingFaceTB/SmolLM2-1.7B-Instruct first; falling back to the Phi-3 Mini quantized build if needed.'
+        : 'WebGPU unavailable. Trying SmolLM2 via WASM (this may take a while); if it fails, we automatically use the Phi-3 Mini quantized fallback.';
       appendMessage(
         'assistant',
         'System',
