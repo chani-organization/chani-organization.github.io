@@ -334,7 +334,33 @@
         return [];
       }
 
-      const STEP1_FILLER_PATTERN = /(Step\s*\d|Response|The following|List of|instructions?|The same|Theory|This is a list)/i;
+      const STEP1_FILLER_PATTERN =
+        /(Step\s*\d|Response|The following|List of|instructions?|The same|Theory|This is a list|PixelScholar|account|username|password|email)/i;
+
+      const COLOR_DESCRIPTIONS = {
+        amber: 'warm amber glow',
+        black: 'deep shadowed surfaces',
+        blue: 'cool blue accents',
+        bronze: 'bronze metallic sheen',
+        copper: 'copper-toned trim',
+        gold: 'gleaming gold edging',
+        gray: 'smoky gray shading',
+        green: 'emerald highlights',
+        indigo: 'indigo lighting bands',
+        iron: 'iron-gray armor plates',
+        ivory: 'ivory accents',
+        jade: 'jade-tinted glow',
+        navy: 'navy cloth panels',
+        orange: 'ember orange accents',
+        pink: 'rose pink lighting',
+        purple: 'royal purple cloth',
+        red: 'crimson highlights',
+        silver: 'polished silver armor',
+        steel: 'steel armor gleam',
+        teal: 'teal edge lights',
+        white: 'bright white trim',
+        yellow: 'golden yellow glow',
+      };
 
       function summarizeStep1(data) {
         const subject = String(data?.subject || '').trim();
@@ -466,9 +492,32 @@
         return unique.slice(0, maxItems);
       }
 
+      function extractLabeledValue(raw, label) {
+        if (!raw) return '';
+        const regex = new RegExp(`^\s*${label}\s*:\\s*(.+)$`, 'i');
+        const lines = String(raw)
+          .split(/[\r\n]+/)
+          .map((line) => line.trim())
+          .filter(Boolean);
+        for (const line of lines) {
+          const match = line.match(regex);
+          if (match && match[1]) {
+            return match[1].trim();
+          }
+        }
+        return '';
+      }
+
+      function extractLabeledList(raw, label, maxItems = 5, maxLen = 80) {
+        const value = extractLabeledValue(raw, label);
+        if (!value) return [];
+        return cleanListEntries(value, maxItems, maxLen);
+      }
+
       function derivePhrasesFromPrompt(prompt) {
         if (!prompt) return [];
         const segments = String(prompt)
+          .replace(/[-_]+/g, ' ')
           .split(/[,;/]| with | and | featuring | holding | wearing | atop | riding /gi)
           .map((segment) => cleanSingleLine(segment, 60))
           .filter(Boolean);
@@ -498,6 +547,79 @@
         return result;
       }
 
+      function buildHeuristicSummary(userPrompt) {
+        const derived = derivePhrasesFromPrompt(userPrompt);
+        const rawSubject = cleanSingleLine(derived[0] || userPrompt, 60) || 'Focal subject';
+        const subject = rawSubject;
+        const tokens = subject
+          .toLowerCase()
+          .replace(/[^a-z0-9\s-]/g, ' ')
+          .split(/[\s-]+/)
+          .filter(Boolean);
+        const baseNoun = tokens[tokens.length - 1] || 'subject';
+        const descriptorTokens = tokens.slice(0, -1);
+        const colorToken = descriptorTokens.find((token) => COLOR_DESCRIPTIONS[token]);
+
+        const traits = [];
+        if (colorToken && !traits.includes(COLOR_DESCRIPTIONS[colorToken])) {
+          traits.push(COLOR_DESCRIPTIONS[colorToken]);
+        }
+        if (descriptorTokens.length) {
+          const descriptorPhrase = `${descriptorTokens.join(' ')} details`;
+          if (!traits.includes(descriptorPhrase)) {
+            traits.push(descriptorPhrase);
+          }
+        }
+        const silhouetteTrait = `defined ${baseNoun} silhouette`;
+        if (!traits.includes(silhouetteTrait)) {
+          traits.push(silhouetteTrait);
+        }
+        const traitFallbacks = [
+          `bold ${baseNoun} posture`,
+          'crisp lighting edges',
+          `layered ${baseNoun} shading`,
+        ];
+        for (const fallback of traitFallbacks) {
+          if (traits.length >= 3) break;
+          if (!traits.includes(fallback)) {
+            traits.push(fallback);
+          }
+        }
+
+        const symbolism = [];
+        const emblem = `${baseNoun} emblem`;
+        if (!symbolism.includes(emblem)) {
+          symbolism.push(emblem);
+        }
+        if (colorToken) {
+          const cue = `${colorToken} radiance`;
+          if (!symbolism.includes(cue)) {
+            symbolism.push(cue);
+          }
+        }
+        if (!symbolism.includes('heroic aura')) {
+          symbolism.push('heroic aura');
+        }
+        const symbolismFallbacks = [`protective crest`, `${baseNoun} motif`];
+        for (const fallback of symbolismFallbacks) {
+          if (symbolism.length >= 3) break;
+          if (!symbolism.includes(fallback)) {
+            symbolism.push(fallback);
+          }
+        }
+
+        const highlight = colorToken ? `${colorToken} highlights` : 'bright edge lighting';
+        const noteTarget = baseNoun || 'subject';
+        const notes = `Block out the ${noteTarget} with ${highlight}.`;
+
+        return summarizeStep1({
+          subject,
+          traits: traits.slice(0, 5),
+          symbolism: symbolism.slice(0, 3),
+          notes,
+        });
+      }
+
       async function runStep1Fallback(userPrompt) {
         const subjectPrompt = [
           'PixelScholar Step 1 fallback.',
@@ -506,7 +628,7 @@
           'Keep it under 60 characters and avoid commentary or meta language.',
         ].join('\n');
         const subjectRaw = await generateText(subjectPrompt, 80, 'Step 1 Fallback – Subject');
-        const subjectLine = cleanSingleLine(subjectRaw, 60);
+        const subjectLine = cleanSingleLine(extractLabeledValue(subjectRaw, 'SUBJECT'), 60);
 
         const traitsPromptBase = [
           'PixelScholar Step 1 fallback.',
@@ -515,8 +637,9 @@
           'Format: TRAITS: trait one, trait two, trait three.',
           'Keep each trait under 60 characters and avoid numbering.',
         ];
-        let traits = cleanListEntries(
+        let traits = extractLabeledList(
           await generateText(traitsPromptBase.join('\n'), 120, 'Step 1 Fallback – Traits'),
+          'TRAITS',
           5,
           60,
         );
@@ -525,8 +648,9 @@
             ...traitsPromptBase,
             'Reminder: supply three different visual descriptors separated by commas with no extra text.',
           ].join('\n');
-          traits = cleanListEntries(
+          traits = extractLabeledList(
             await generateText(traitsRetryPrompt, 120, 'Step 1 Fallback – Traits Retry'),
+            'TRAITS',
             5,
             60,
           );
@@ -539,8 +663,9 @@
           'Format: SYMBOLISM: cue one, cue two[, cue three].',
           'Keep each cue under 60 characters and tie them to the subject.',
         ];
-        let symbolism = cleanListEntries(
+        let symbolism = extractLabeledList(
           await generateText(symbolismPromptBase.join('\n'), 120, 'Step 1 Fallback – Symbolism'),
+          'SYMBOLISM',
           5,
           60,
         );
@@ -549,8 +674,9 @@
             ...symbolismPromptBase,
             'Reminder: give emblematic visual cues only, no prose or meta commentary.',
           ].join('\n');
-          symbolism = cleanListEntries(
+          symbolism = extractLabeledList(
             await generateText(symbolismRetryPrompt, 120, 'Step 1 Fallback – Symbolism Retry'),
+            'SYMBOLISM',
             5,
             60,
           );
@@ -563,7 +689,10 @@
           'Keep it under 100 characters and avoid filler words.',
         ];
         let notes = cleanSingleLine(
-          await generateText(notesPromptBase.join('\n'), 100, 'Step 1 Fallback – Note'),
+          extractLabeledValue(
+            await generateText(notesPromptBase.join('\n'), 100, 'Step 1 Fallback – Note'),
+            'NOTE',
+          ),
           100,
         );
         if (!notes) {
@@ -572,7 +701,10 @@
             'Reminder: provide a direct rendering instruction with concrete guidance.',
           ].join('\n');
           notes = cleanSingleLine(
-            await generateText(notesRetryPrompt, 100, 'Step 1 Fallback – Note Retry'),
+            extractLabeledValue(
+              await generateText(notesRetryPrompt, 100, 'Step 1 Fallback – Note Retry'),
+              'NOTE',
+            ),
             100,
           );
         }
@@ -608,12 +740,17 @@
         const fallbackNote =
           notes || (subject ? `Use bold lighting to emphasize the ${subject}.` : 'Use bold lighting to emphasize the focal subject.');
 
-        return summarizeStep1({
+        const fallbackSummary = summarizeStep1({
           subject,
           traits: traitsFilled,
           symbolism: symbolismFilled,
           notes: fallbackNote,
         });
+        if (fallbackSummary.valid) {
+          return fallbackSummary;
+        }
+
+        return buildHeuristicSummary(userPrompt);
       }
 
       function uniqueColors(values) {
