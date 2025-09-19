@@ -200,6 +200,15 @@
         statusEl.textContent = text;
       }
 
+      function sanitizePrompt(text) {
+        if (!text) return '';
+        return text
+          .replace(/[\n\r\t]+/g, ' ')
+          .replace(/[\\/][nrt]/gi, ' ')
+          .replace(/\s{2,}/g, ' ')
+          .trim();
+      }
+
       function clearCanvas(size = 24) {
         canvas.width = size;
         canvas.height = size;
@@ -522,12 +531,18 @@
       }
 
       async function handleGenerate() {
-        const text = promptInput.value.trim();
-        if (!text) return;
-        if (text.length > promptLimit) {
+        const text = promptInput.value;
+        const sanitizedPrompt = sanitizePrompt(text);
+        if (!sanitizedPrompt) {
+          appendError('Prompt Needed', 'Please enter a description using letters and numbers.');
+          setStatus('No usable prompt detected. Enter a short description and try again.');
+          return;
+        }
+        promptInput.value = sanitizedPrompt;
+        if (sanitizedPrompt.length > promptLimit) {
           appendError(
             'Prompt Too Long',
-            `The request has ${text.length} characters. Please split it into chunks under ${promptLimit} characters to avoid context overflows.`,
+            `The request has ${sanitizedPrompt.length} characters. Please split it into chunks under ${promptLimit} characters to avoid context overflows.`,
           );
           setStatus(`Prompt exceeds the ${promptLimit}-character safety budget. Shorten the request and retry.`);
           return;
@@ -536,7 +551,7 @@
         generateBtn.disabled = true;
         setStatus('Preparing the LLM for a five-step dialogue...');
         try {
-          await runFiveStepDialogue(text);
+          await runFiveStepDialogue(sanitizedPrompt);
         } catch (error) {
           console.error(error);
           appendError('Error', error?.message || 'We could not generate pixel art. Please try again.');
