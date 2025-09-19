@@ -156,7 +156,7 @@
       let hf = null;
       let llm = null;
       let llmPromise = null;
-      let promptLimit = navigator.gpu ? 1100 : 700;
+      let promptLimit = navigator.gpu ? 900 : 600;
       const SAFE_PROMPT_PATTERN = /[^\p{L}\p{N}\p{Zs}.,!?"'()\-]/gu;
 
       const DEFAULT_GENERATION_OPTIONS = {
@@ -164,26 +164,26 @@
         repetition_penalty: 1.1,
       };
 
-      const MAX_GPU_PROMPT_CHARS = 1100;
-      const MAX_CPU_PROMPT_CHARS = 700;
+      const MAX_GPU_PROMPT_CHARS = 900;
+      const MAX_CPU_PROMPT_CHARS = 600;
       const MODEL_CHOICES = {
         webgpu: [
           {
-            id: 'google/gemma-3n-E4B-it-litert-lm',
-            label: 'Gemma 3N E4B Instruct (LiteRT)',
+            id: 'HuggingFaceTB/SmolLM2-1.7B-Instruct',
+            label: 'SmolLM2 1.7B Instruct',
             device: 'webgpu',
             dtype: 'auto',
-            context: '≈2K token context window',
+            context: 'Extended context window (see model card)',
             promptLimit: MAX_GPU_PROMPT_CHARS,
           },
         ],
         wasm: [
           {
-            id: 'google/gemma-3n-E4B-it-litert-lm',
-            label: 'Gemma 3N E4B Instruct (LiteRT)',
+            id: 'HuggingFaceTB/SmolLM2-1.7B-Instruct',
+            label: 'SmolLM2 1.7B Instruct (WASM)',
             device: 'wasm',
             dtype: 'auto',
-            context: '≈1K token context window',
+            context: 'Extended context window (see model card)',
             promptLimit: MAX_CPU_PROMPT_CHARS,
           },
         ],
