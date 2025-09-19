@@ -108,7 +108,9 @@
         red:'#e53935', blue:'#1e90ff', green:'#2ecc71', yellow:'#ffd166', orange:'#ff8c42', pink:'#ff66b3', purple:'#7c4dff', brown:'#8d6e63', black:'#000000', white:'#ffffff', gray:'#9aa0a6', grey:'#9aa0a6', cyan:'#29adff', teal:'#20c997', gold:'#ffd700', silver:'#c0c0c0',
         빨강:'#e53935', 빨간:'#e53935', 파랑:'#1e90ff', 파란:'#1e90ff', 초록:'#2ecc71', 녹색:'#2ecc71', 노랑:'#ffd166', 주황:'#ff8c42', 분홍:'#ff66b3', 보라:'#7c4dff', 갈색:'#8d6e63', 검정:'#000000', 하양:'#ffffff', 흰색:'#ffffff', 회색:'#9aa0a6', 하늘:'#87ceeb', 청록:'#20c997', 금색:'#ffd700', 은색:'#c0c0c0'
       };
-      const CATEGORY_KEYWORDS = {
+
+      // --- 카테고리 키워드 (생략 없이 기존 코드 유지)
+      const CATEGORY_KEYWORDS = { /* ... 기존 그대로 ... */
         animal: ['animal','mammal','creature','beast','bird','fish','insect','reptile','feline','canine','amphibian','fauna','pet','cat','dog','kitten','puppy','wolf','lion','tiger','bear','dragon','고양이','강아지','동물','포유류','새','물고기','고래','상어','조류','파충류','곤충','사자','호랑이','늑대','용','토끼','말'],
         plant: ['plant','tree','flower','leaf','flora','vine','grass','moss','cactus','bloom','seed','herb','fruit','식물','나무','꽃','잎','풀','덩굴','이끼','선인장','씨앗','열매','과일','꽃잎','꽃송이','장미','꽃병'],
         person: ['person','human','people','character','face','figure','portrait','hero','villain','girl','boy','man','woman','사람','인물','캐릭터','얼굴','초상','영웅','악당','소녀','소년','남자','여자','아이','인간','주인공','인물상'],
@@ -125,15 +127,11 @@
         symbol: ['symbol','icon','logo','emblem','sigil','badge','crest','mark','insignia','심볼','아이콘','로고','엠블럼','문양','상징','마크','문장','표식'],
         mythic: ['myth','spirit','ghost','dragon','monster','fairy','demon','legendary','magic','fantasy','신화','정령','유령','드래곤','용','괴물','요정','악마','전설','환상','도깨비','마법']
       };
+
       function primaryFromText(t, fallback){ for (const [k,v] of Object.entries(NAMED)){ if (t.toLowerCase().includes(k)) return v; } const m = t.match(/#([0-9a-fA-F]{6})/); return m?('#'+m[1]):fallback; }
 
       const DEFAULT_FALLBACKS = ['#ff8c42','#2ecc71','#1e90ff','#ffd166','#ff66b3','#7c4dff','#8d6e63'];
-      function fallbackPrimary(text){
-        if (!text) return DEFAULT_FALLBACKS[0];
-        let hash = 0;
-        for (const ch of text){ hash = (hash*131 + ch.charCodeAt(0))|0; }
-        return DEFAULT_FALLBACKS[Math.abs(hash)%DEFAULT_FALLBACKS.length];
-      }
+      function fallbackPrimary(text){ if (!text) return DEFAULT_FALLBACKS[0]; let hash = 0; for (const ch of text){ hash = (hash*131 + ch.charCodeAt(0))|0; } return DEFAULT_FALLBACKS[Math.abs(hash)%DEFAULT_FALLBACKS.length]; }
 
       const BAYER8 = [
         0,48,12,60,3,51,15,63,
@@ -189,24 +187,59 @@
       function applyBackground(){ if (transparent) return; ctx.save(); ctx.globalCompositeOperation='destination-over'; ctx.fillStyle = bgColor; ctx.fillRect(0,0,N,N); ctx.restore(); }
       function drawGridOverlay(){ if (!drawGrid) return; ctx.save(); ctx.globalAlpha = 0.25; ctx.strokeStyle = '#2a3038'; ctx.lineWidth = 0.03; for (let i=1;i<N;i++){ ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,N); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(N,i); ctx.stroke(); } ctx.restore(); }
       function computeOutline(){ OUTLINE.fill(0); for (let y=0;y<N;y++){ for (let x=0;x<N;x++){ const idx=y*N+x; if (!MASK[idx]) continue; const nb = (x>0&&!MASK[idx-1])||(x<N-1&&!MASK[idx+1])||(y>0&&!MASK[idx-N])||(y<N-1&&!MASK[idx+N])|| (x>0&&y>0&&!MASK[idx-N-1])||(x<N-1&&y>0&&!MASK[idx-N+1])||(x>0&&y<N-1&&!MASK[idx+N-1])||(x<N-1&&y<N-1&&!MASK[idx+N+1]); if (nb) OUTLINE[idx]=1; } } }
-      function drawOutline(){
-        if (!drawOutlineFlag) return;
-        computeOutline();
-        ctx.save();
-        const useMirror = mirrorOverride ?? symX;
-        for (let y=0;y<N;y++){
-          for (let x=0;x<N;x++){
-            if (!OUTLINE[y*N+x]) continue;
-            ctx.fillStyle = outlineColor;
-            ctx.fillRect(x,y,1,1);
-            if (useMirror){ const mx=N-1-x; if (mx!==x) ctx.fillRect(mx,y,1,1); }
-          }
-        }
-        ctx.restore();
-      }
+      function drawOutline(){ if (!drawOutlineFlag) return; computeOutline(); ctx.save(); const useMirror = mirrorOverride ?? symX; for (let y=0;y<N;y++){ for (let x=0;x<N;x++){ if (!OUTLINE[y*N+x]) continue; ctx.fillStyle = outlineColor; ctx.fillRect(x,y,1,1); if (useMirror){ const mx=N-1-x; if (mx!==x) ctx.fillRect(mx,y,1,1); } } } ctx.restore(); }
 
       function withPalette(main){ const p = PALETTES[paletteKey]; const base = main; const dark = darken(main, .25); const light = lighten(main, .2); const accent = p[(Math.floor(rng()*p.length))%p.length]; return { base, dark, light, accent }; }
 
+      // ====== (1) 모티프 감지 + 전용 렌더러 ======
+      function detectMotif(text){ const t=(text||'').toLowerCase();
+        if (/(하트|heart|love)/.test(t)) return 'heart';
+        if (/(별|star)/.test(t)) return 'star';
+        if (/(달|moon|crescent)/.test(t)) return 'moon';
+        if (/(태양|sun)/.test(t)) return 'sun';
+        if (/(고양|cat|냥)/.test(t)) return 'cat';
+        return null; }
+
+      function renderHeart(primary){
+        clearAll(); mirrorOverride = false;
+        const c = withPalette(primary);
+        // 두 개의 상단 원 + 하단 삼각형 합성으로 하트
+        const r = N*0.22, cy = N*0.36, lx = N*0.35, rx = N*0.65;
+        fillCircle(lx, cy, r, c.base);
+        fillCircle(rx, cy, r, c.base);
+        fillTriangle(N*0.18, N*0.48, N*0.82, N*0.48, N*0.50, N*0.86, c.base);
+        // 하이라이트
+        fillCircle(lx- N*0.04, cy- N*0.06, N*0.06, lighten(c.light,0.25));
+        outlineColor = darken(primary, .55);
+        drawOutline(); applyBackground(); drawGridOverlay();
+        log('완료(Motif: heart)');
+      }
+
+      function fillStar(cx,cy,outerR,innerR,color){
+        const pts=[]; for (let k=0;k<10;k++){ const a=-Math.PI/2 + k*Math.PI/5; const r=(k%2===0)?outerR:innerR; pts.push([cx+Math.cos(a)*r, cy+Math.sin(a)*r]); }
+        for (let i=0;i<10;i++){ const a=pts[i], b=pts[(i+1)%10]; fillTriangle(cx,cy,a[0],a[1],b[0],b[1],color); }
+      }
+      function renderStar(primary){ clearAll(); mirrorOverride=false; const c=withPalette(primary); fillStar(N*0.5,N*0.52,N*0.34,N*0.14,c.base); outlineColor=darken(primary,.55); drawOutline(); applyBackground(); drawGridOverlay(); log('완료(Motif: star)'); }
+
+      function renderMoon(primary){ clearAll(); mirrorOverride=false; const c=withPalette(primary);
+        // 픽셀기반 초승달: 큰 원 - 작은 원
+        for (let y=0;y<N;y++){ for (let x=0;x<N;x++){ const dx1=(x+0.5)-N*0.48, dy1=(y+0.5)-N*0.46; const dx2=(x+0.5)-N*0.60, dy2=(y+0.5)-N*0.44; const inBig = (dx1*dx1+dy1*dy1)<= (N*0.30)**2; const inSmall = (dx2*dx2+dy2*dy2)<= (N*0.26)**2; if (inBig && !inSmall) px(x,y,c.base,false); } }
+        outlineColor=darken(primary,.55); drawOutline(); applyBackground(); drawGridOverlay(); log('완료(Motif: moon)'); }
+
+      function renderSun(primary){ clearAll(); mirrorOverride=false; const c=withPalette(primary); fillCircle(N*0.5,N*0.5,N*0.22,c.base); for (let i=0;i<8;i++){ const a=i*Math.PI/4; fillTriangle(N*0.5,N*0.5, N*0.5+Math.cos(a)*N*0.36, N*0.5+Math.sin(a)*N*0.36, N*0.5+Math.cos(a+0.25)*N*0.28, N*0.5+Math.sin(a+0.25)*N*0.28, c.light); } outlineColor=darken(primary,.55); drawOutline(); applyBackground(); drawGridOverlay(); log('완료(Motif: sun)'); }
+
+      function renderCat(primary){ clearAll(); mirrorOverride=null; const c=withPalette(primary); const cx=N*0.5, cy=N*0.58; const r=N*0.28; fillCircle(cx,cy,r,c.base); // 귀
+        fillTriangle(cx-r*0.65, cy-r*0.55, cx-r*0.25, cy-r*0.10, cx-r*0.95, cy-r*0.05, c.dark);
+        fillTriangle(cx+r*0.65, cy-r*0.55, cx+r*0.25, cy-r*0.10, cx+r*0.95, cy-r*0.05, c.dark);
+        // 눈/코/수염
+        fillCircle(cx-r*0.45, cy-r*0.05, r*0.14, '#111'); fillCircle(cx+r*0.45, cy-r*0.05, r*0.14, '#111');
+        fillTriangle(cx-r*0.08, cy+r*0.05, cx+r*0.08, cy+r*0.05, cx, cy+r*0.16, c.accent);
+        for (let k=-1;k<=1;k+=2){ fillRect(cx+k*r*0.42, cy+r*0.12, k*r*0.28, r*0.02, '#111'); fillRect(cx+k*r*0.42, cy+r*0.16, k*r*0.28, r*0.02, '#111'); }
+        outlineColor=darken(primary,.55); drawOutline(); applyBackground(); drawGridOverlay(); log('완료(Motif: cat)'); }
+
+      function tryMotifOnce(text){ const m = detectMotif(text); if (!m) return false; const primary = primaryFromText(text, fallbackPrimary(text)); if (m==='heart') renderHeart(primary); else if (m==='star') renderStar(primary); else if (m==='moon') renderMoon(primary); else if (m==='sun') renderSun(primary); else if (m==='cat') renderCat(primary); else return false; return true; }
+
+      // ====== (2) LLM 도우미/검증 (기존 + 강화) ======
       const WORD_RE = /\p{L}+/gu;
       function tokenizeLexical(text){ const raw=(text||'').toLowerCase().match(WORD_RE)||[]; const seen=new Set(); const out=[]; for (const w of raw){ if (w.length<2||seen.has(w)) continue; seen.add(w); out.push(w); if (out.length>=8) break; } return out; }
       const cleanDefinition = (def)=>String(def||'').replace(/\s+/g,' ').trim();
@@ -223,118 +256,37 @@
       return out; }
       function hintsToContext(hints){ if (!hints?.length) return 'none'; return hints.map(h=>`${h.word}: ${h.definitions.join('; ')}`).join('\n'); }
       function collectDefinitionText(hints){ return hints.map(h=>h.definitions.join(' ')).join(' ').toLowerCase(); }
-      function buildSemanticProfile(text, hints){
-        const corpus = (`${text||''} ${collectDefinitionText(hints)}`).toLowerCase();
-        const includesKeyword = (keyword)=>corpus.includes(keyword.toLowerCase());
-        const hasCategory = (key)=>{
-          const words = CATEGORY_KEYWORDS[key] || [];
-          return words.some(includesKeyword);
-        };
-        return {
-          animal: hasCategory('animal'),
-          plant: hasCategory('plant'),
-          person: hasCategory('person'),
-          structure: hasCategory('structure'),
-          vehicle: hasCategory('vehicle'),
-          weapon: hasCategory('weapon'),
-          technology: hasCategory('technology'),
-          weather: hasCategory('weather'),
-          celestial: hasCategory('celestial'),
-          water: hasCategory('water'),
-          fire: hasCategory('fire'),
-          nature: hasCategory('nature'),
-          food: hasCategory('food'),
-          symbol: hasCategory('symbol'),
-          mythic: hasCategory('mythic'),
-        };
-      }
+      function buildSemanticProfile(text, hints){ const corpus = (`${text||''} ${collectDefinitionText(hints)}`).toLowerCase(); const includesKeyword = (keyword)=>corpus.includes(keyword.toLowerCase()); const hasCategory = (key)=>{ const words = CATEGORY_KEYWORDS[key] || []; return words.some(includesKeyword); }; return { animal: hasCategory('animal'), plant: hasCategory('plant'), person: hasCategory('person'), structure: hasCategory('structure'), vehicle: hasCategory('vehicle'), weapon: hasCategory('weapon'), technology: hasCategory('technology'), weather: hasCategory('weather'), celestial: hasCategory('celestial'), water: hasCategory('water'), fire: hasCategory('fire'), nature: hasCategory('nature'), food: hasCategory('food'), symbol: hasCategory('symbol'), mythic: hasCategory('mythic'), }; }
       function summarizeHintsForLog(hints){ if (!hints?.length) return ''; return hints.map(h=>`${h.word}: ${h.definitions[0]}`).join(' | '); }
-      const asList = (value)=>{
-        if (Array.isArray(value)) return value.map((v)=>String(v||'').trim()).filter(Boolean);
-        if (typeof value === 'string') return value.split(/[,;\n]+/).map((v)=>v.trim()).filter(Boolean);
-        return [];
-      };
-      function normalizePlan(plan){
-        if (!plan || typeof plan !== 'object') return null;
-        const subject = typeof plan.subject === 'string' ? plan.subject.trim() : typeof plan.theme === 'string' ? plan.theme.trim() : '';
-        const backgroundRaw = typeof plan.background === 'string' ? plan.background : (typeof plan.backdrop === 'string' ? plan.backdrop : '');
-        const background = backgroundRaw.trim ? backgroundRaw.trim() : '';
-        const layoutRaw = typeof plan.layout === 'string' ? plan.layout : (typeof plan.composition === 'string' ? plan.composition : '');
-        const layout = layoutRaw.trim ? layoutRaw.trim() : '';
-        const focus = [...asList(plan.focus), ...asList(plan.details), ...asList(plan.elements)].filter(Boolean);
-        const palette = asList(plan.palette).filter(Boolean).slice(0,5);
-        const unique = (arr)=>Array.from(new Set(arr.map((v)=>v.trim()).filter(Boolean)));
-        const normalized = {
-          subject,
-          background: background || '',
-          layout: layout || '',
-          focus: unique(focus).slice(0,4),
-          palette: unique(palette),
-        };
-        if (!normalized.subject && !normalized.background && !normalized.layout && !normalized.focus.length && !normalized.palette.length) return null;
-        return normalized;
-      }
-      function planToGuidance(plan){
-        if (!plan) return '';
-        const parts = [];
-        if (plan.subject) parts.push(`Primary subject: ${plan.subject}.`);
-        if (plan.focus?.length) parts.push(`Key features: ${plan.focus.join(', ')}.`);
-        if (plan.layout) parts.push(`Layout guidance: ${plan.layout}.`);
-        if (plan.background) parts.push(`Background: ${plan.background}.`);
-        if (plan.palette?.length) parts.push(`Palette cues: ${plan.palette.join(', ')}.`);
-        return parts.join('\n');
-      }
-      function summarizePlanForLog(plan){
-        if (!plan) return '';
-        const parts = [];
-        if (plan.subject) parts.push(`주제 ${plan.subject}`);
-        if (plan.focus?.length) parts.push(`포커스 ${plan.focus.slice(0,2).join(', ')}`);
-        if (plan.layout) parts.push(`레이아웃 ${plan.layout}`);
-        if (plan.background) parts.push(`배경 ${plan.background}`);
-        if (plan.palette?.length) parts.push(`팔레트 ${plan.palette.slice(0,2).join(', ')}`);
-        return parts.join(' | ');
+
+      const asList = (value)=>{ if (Array.isArray(value)) return value.map((v)=>String(v||'').trim()).filter(Boolean); if (typeof value === 'string') return value.split(/[,;\n]+/).map((v)=>v.trim()).filter(Boolean); return []; };
+      function normalizePlan(plan){ if (!plan || typeof plan !== 'object') return null; const subject = typeof plan.subject === 'string' ? plan.subject.trim() : typeof plan.theme === 'string' ? plan.theme.trim() : ''; const backgroundRaw = typeof plan.background === 'string' ? plan.background : (typeof plan.backdrop === 'string' ? plan.backdrop : ''); const background = backgroundRaw.trim ? backgroundRaw.trim() : ''; const layoutRaw = typeof plan.layout === 'string' ? plan.layout : (typeof plan.composition === 'string' ? plan.composition : ''); const layout = layoutRaw.trim ? layoutRaw.trim() : ''; const focus = [...asList(plan.focus), ...asList(plan.details), ...asList(plan.elements)].filter(Boolean); const palette = asList(plan.palette).filter(Boolean).slice(0,5); const unique = (arr)=>Array.from(new Set(arr.map((v)=>v.trim()).filter(Boolean))); const normalized = { subject, background: background || '', layout: layout || '', focus: unique(focus).slice(0,4), palette: unique(palette), }; if (!normalized.subject && !normalized.background && !normalized.layout && !normalized.focus.length && !normalized.palette.length) return null; return normalized; }
+      function planToGuidance(plan){ if (!plan) return ''; const parts = []; if (plan.subject) parts.push(`Primary subject: ${plan.subject}.`); if (plan.focus?.length) parts.push(`Key features: ${plan.focus.join(', ')}.`); if (plan.layout) parts.push(`Layout guidance: ${plan.layout}.`); if (plan.background) parts.push(`Background: ${plan.background}.`); if (plan.palette?.length) parts.push(`Palette cues: ${plan.palette.join(', ')}.`); return parts.join('\n'); }
+      function summarizePlanForLog(plan){ if (!plan) return ''; const parts = []; if (plan.subject) parts.push(`주제 ${plan.subject}`); if (plan.focus?.length) parts.push(`포커스 ${plan.focus.slice(0,2).join(', ')}`); if (plan.layout) parts.push(`레이아웃 ${plan.layout}`); if (plan.background) parts.push(`배경 ${plan.background}`); if (plan.palette?.length) parts.push(`팔레트 ${plan.palette.slice(0,2).join(', ')}`); return parts.join(' | '); }
+
+      let hf = null; let llm = null;
+      async function ensureLLM(){ if (llm) return; log('모델 로드 중...'); hf = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.0'); hf.env.allowRemoteModels = true; const device = navigator.gpu? 'webgpu' : 'wasm'; const dtype = navigator.gpu? 'q4' : 'q8'; llm = await hf.pipeline('text-generation','onnx-community/ettin-decoder-150m-ONNX',{ device, dtype, progress_callback:e=>{ if (e?.status && e?.progress!=null) log(`모델 로드: ${Math.round(e.progress*100)}%`); } }); log('모델 준비 완료'); }
+
+      function extractJSON(text){ const code=/```(?:json)?\s*([\s\S]*?)```/i.exec(text); const body=code?code[1]:(text.match(/\{[\s\S]*\}/)||[''])[0]; let s=(body||'').trim(); s=s.replace(/(\w+)\s*:/g,'"$1":'); s=s.replace(/'/g,'"'); s=s.replace(/,(\s*[}\]])/g,'$1'); return JSON.parse(s); }
+
+      function normalizeTemplate(t, size){ const s=Math.max(4,Math.min(32, t?.size||size)); let data=t?.data||[]; if (!Array.isArray(data)) data=[]; data=data.slice(0,s).map(r=> typeof r==='string'? r.replace(/\s/g,'').split('').slice(0,s): Array.isArray(r)? r.slice(0,s).map(String): []); while (data.length<s) data.push(Array(s).fill('0')); data=data.map(r=> r.length<s? r.concat(Array(s-r.length).fill('0')): r); const pal = Object.fromEntries(Object.entries(t?.palette||{}).map(([k,v])=>[String(k),String(v)])); return { size:s, palette:pal, data }; }
+
+      // 템플릿 품질 점검 & 연결성 체크
+      function scoreTemplate(tpl){ const s=tpl.size; const used=new Set(); let colored=0; const grid=tpl.data; const dirs=[[1,0],[-1,0],[0,1],[0,-1]]; const seen=new Uint8Array(s*s); let islands=0; function idx(x,y){return y*s+x;}
+        for (let y=0;y<s;y++){ for (let x=0;x<s;x++){ const code=String(grid[y][x]); if (code!=='0'&&code!=='.'&&code!==' '){ colored++; used.add(code); } } }
+        // flood-fill to count components
+        for (let y=0;y<s;y++){ for (let x=0;x<s;x++){ const code=String(grid[y][x]); if ((code==='0'||code==='.'||code===' ')||seen[idx(x,y)]) continue; islands++; const q=[[x,y]]; seen[idx(x,y)]=1; while(q.length){ const [cx,cy]=q.pop(); for(const [dx,dy] of dirs){const nx=cx+dx, ny=cy+dy; if(nx<0||ny<0||nx>=s||ny>=s) continue; const cd=String(grid[ny][nx]); if ((cd==='0'||cd==='.'||cd===' ')||seen[idx(nx,ny)]) continue; seen[idx(nx,ny)]=1; q.push([nx,ny]); } }
+        } }
+        const coverage = colored/(s*s);
+        return { coverage, islands, colorsUsed: used.size, colored };
       }
 
-      let hf = null;
-      let llm = null;
-      async function ensureLLM(){
-        if (llm) return;
-        log('모델 로드 중...');
-        hf = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.0');
-        hf.env.allowRemoteModels = true;
-        const device = navigator.gpu? 'webgpu' : 'wasm';
-        const dtype = navigator.gpu? 'q4' : 'q8';
-        llm = await hf.pipeline('text-generation','onnx-community/ettin-decoder-150m-ONNX',{ device, dtype, progress_callback:e=>{ if (e?.status && e?.progress!=null) log(`모델 로드: ${Math.round(e.progress*100)}%`); } });
-        log('모델 준비 완료');
-      }
-      function extractJSON(text){ const code=/```(?:json)?\s*([\s\S]*?)```/i.exec(text); const body=code?code[1]:(text.match(/\{[\s\S]*\}/)||[''])[0]; let s=(body||'').trim(); s=s.replace(/(\w+)\s*:/g,'"$1":'); s=s.replace(/'/g,'"'); s=s.replace(/,(\s*[}\]])/g,'$1'); return JSON.parse(s); }
-      function normalizeTemplate(t, size){ const s=Math.max(4,Math.min(32, t?.size||size)); let data=t?.data||[]; if (!Array.isArray(data)) data=[]; data=data.slice(0,s).map(r=> typeof r==='string'? r.replace(/\s/g,'').split('').slice(0,s): Array.isArray(r)? r.slice(0,s).map(String): []); while (data.length<s) data.push(Array(s).fill('0')); data=data.map(r=> r.length<s? r.concat(Array(s-r.length).fill('0')): r); const pal = Object.fromEntries(Object.entries(t?.palette||{}).map(([k,v])=>[String(k),String(v)])); return { size:s, palette:pal, data }; }
-      function drawTemplate(tpl){
-        clearAll();
-        const prev = mirrorOverride;
-        mirrorOverride = false;
-        const s=tpl.size;
-        for (let y=0;y<s;y++){
-          const row=tpl.data[y];
-          for (let x=0;x<s;x++){
-            const code = String(row[x]);
-            if (code==='0'||code==='.'||code===' ') continue;
-            const color = tpl.palette[code] || '#000000';
-            const ix = Math.floor(x/s*N), iy = Math.floor(y/s*N);
-            px(ix,iy,color,false);
-          }
-        }
-        mirrorOverride = prev;
-      }
+      function drawTemplate(tpl){ clearAll(); const prev = mirrorOverride; mirrorOverride = false; const s=tpl.size; for (let y=0;y<s;y++){ const row=tpl.data[y]; for (let x=0;x<s;x++){ const code = String(row[x]); if (code==='0'||code==='.'||code===' ') continue; const color = tpl.palette[code] || '#000000'; const ix = Math.floor(x/s*N), iy = Math.floor(y/s*N); px(ix,iy,color,false); } } mirrorOverride = prev; }
 
       function buildPlanningPrompt({ text, target, lexical, colorHint }){
         const lexicalSection = hintsToContext(lexical);
-        const lexicalLine = lexicalSection==='none'
-          ? 'Lexical notes: none. Focus on literal dictionary meaning.'
-          : `Lexical notes:\n${lexicalSection}`;
-        const colorLine = colorHint
-          ? `Consider hues related to ${colorHint} only when they reinforce the literal subject.`
-          : 'No specific colour hint detected; rely on literal subject cues.';
+        const lexicalLine = lexicalSection==='none' ? 'Lexical notes: none. Focus on literal dictionary meaning.' : `Lexical notes:\n${lexicalSection}`;
+        const colorLine = colorHint ? `Consider hues related to ${colorHint} only when they reinforce the literal subject.` : 'No specific colour hint detected; rely on literal subject cues.';
         return [
           'You are LexiPixel Planner, a planning assistant that must respond with JSON only.',
           `Plan a ${target}x${target} pixel art composition for "${text}".`,
@@ -345,28 +297,21 @@
           'Do not add commentary, markdown fences, or explanations outside the JSON object.'
         ].join('\n');
       }
+
       function buildLLMPrompt({ text, target, lexical, colorHint, plan }){
         const palette = PALETTES[paletteKey] || [];
         const paletteLine = palette.length? `Palette (${paletteKey}): ${palette.join(', ')}.` : 'Palette: choose harmonious #RRGGBB colours.';
         const lexicalSection = hintsToContext(lexical);
-        const styleLine = styleMode==='shaded'
-          ? 'Apply soft shading with lighter highlights and darker shadows.'
-          : styleMode==='dither'
-          ? 'Use patterned dithering or checks to imply shading.'
-          : 'Keep the fills mostly flat without extra shading.';
-        const transparencyLine = transparent
-          ? 'Leave background pixels as 0 (transparent).'
-          : `If a background is required fill unused pixels with ${bgColor}; 0 still indicates transparency.`;
+        const styleLine = styleMode==='shaded' ? 'Apply soft shading with lighter highlights and darker shadows.' : styleMode==='dither' ? 'Use patterned dithering or checks to imply shading.' : 'Keep the fills mostly flat without extra shading.';
+        const transparencyLine = transparent ? 'Leave background pixels as 0 (transparent).' : `If a background is required fill unused pixels with ${bgColor}; 0 still indicates transparency.`;
         const planGuidance = planToGuidance(plan);
         const colourParts = [colorHint ? `Incorporate hues related to ${colorHint} when it fits the subject.` : 'Choose colours that match the subject.'];
         if (plan?.palette?.length) colourParts.push(`Plan palette cues: ${plan.palette.join(', ')}.`);
         const colourLine = colourParts.join(' ');
-        const lexicalLine = lexicalSection==='none'
-          ? 'Lexical notes: none. Interpret the request literally using dictionary meaning.'
-          : `Lexical notes:\n${lexicalSection}`;
-        const planLine = planGuidance
-          ? `Follow this approved plan:\n${planGuidance}`
-          : 'Compose the scene yourself while staying faithful to the literal meaning.';
+        const lexicalLine = lexicalSection==='none' ? 'Lexical notes: none. Interpret the request literally using dictionary meaning.' : `Lexical notes:\n${lexicalSection}`;
+        const planLine = planGuidance ? `Follow this approved plan:\n${planGuidance}` : 'Compose the scene yourself while staying faithful to the literal meaning.';
+        // 소형 모델을 위한 짧은 예시(8x8 하트)
+        const fewshot = '{"size":8,"palette":{"1":"#e53935"},"data":["00111100","01111110","11111111","11111111","01111110","00111100","00011000","00000000"]}';
         return [
           'You are LexiPixel, a pixel art generator that must respond with JSON only.',
           `Design a ${target}x${target} pixel art template for "${text}".`,
@@ -377,15 +322,33 @@
           paletteLine,
           styleLine,
           transparencyLine,
-          `Return a JSON object with keys "size", "palette", "data".`,
+          'Return a JSON object with keys "size", "palette", "data".',
           `"size" must be ${target}.`,
           'Limit "palette" to at most 8 string-digit keys ("1","2",...) mapping to "#RRGGBB" colours.',
           `Provide exactly ${target} strings in "data", each of length ${target}, using only "0" for transparent pixels and palette digits for coloured pixels.`,
-          'Do not add commentary, explanations, or markdown outside of the JSON object.'
+          'No commentary or markdown. JSON only.',
+          'Example (8x8 heart JSON):',
+          fewshot
         ].join('\n');
       }
 
+      async function improveWithLLM(reason, prevJSON, text, target, lexical, colorHint, plan, attempt){
+        const prompt = [
+          'You produced a JSON pixel template previously. It has issues:', reason,
+          'Rewrite a corrected JSON. Keep JSON-only. No commentary.',
+          `The target size is exactly ${target}. Use 0 for transparent cells. Ensure a recognizable silhouette that covers roughly 12%~35% of pixels. Connect coloured pixels.`,
+          'Previous JSON:', JSON.stringify(prevJSON)
+        ].join('\n');
+        const maxTokens = target>=32?360:(target>=24?260:220);
+        const out = await llm(prompt,{ max_new_tokens:maxTokens, do_sample:false });
+        const raw = String(out?.[0]?.generated_text||'').trim();
+        const js = extractJSON(raw); return normalizeTemplate(js, target);
+      }
+
       async function generateLexicalArt(text){
+        // 1) 우선 모티프(하트 등) 즉시 처리
+        if (tryMotifOnce(text)) return { motif:true };
+
         const target = N<=16?16:(N<=24?24:32);
         const lexical = await collectLexicalHints(text);
         const colorHint = primaryFromText(text, fallbackPrimary(text));
@@ -400,16 +363,28 @@
             const planRaw = String(planOut?.[0]?.generated_text||'').trim();
             const planJSON = extractJSON(planRaw);
             plan = normalizePlan(planJSON) || null;
-          } catch (planningError){
-            console.warn('Planning step failed', planningError);
-          }
+          } catch (planningError){ console.warn('Planning step failed', planningError); }
+
           log('LLM 생성 중...');
           const prompt = buildLLMPrompt({ text, target, lexical, colorHint, plan });
           const maxTokens = target>=32?360:(target>=24?260:220);
           const out = await llm(prompt,{ max_new_tokens:maxTokens, do_sample:false });
           const raw = String(out?.[0]?.generated_text||'').trim();
-          const json = extractJSON(raw);
-          const tpl = normalizeTemplate(json, target);
+          let json = extractJSON(raw);
+          let tpl = normalizeTemplate(json, target);
+
+          // 자체 검증 & 최대 2회 수정 요청
+          for (let attempt=0; attempt<2; attempt++){
+            const sc = scoreTemplate(tpl);
+            const tooSparse = sc.coverage < 0.10; // 10% 미만이면 너무 듬성듬성
+            const tooNoisy = sc.islands > 6 && sc.coverage < 0.25;
+            const bad = tooSparse || tooNoisy || tpl.size!==target;
+            if (!bad) break;
+            try {
+              tpl = await improveWithLLM(`coverage=${(sc.coverage*100).toFixed(1)}%, islands=${sc.islands}`, tpl, text, target, lexical, colorHint, plan, attempt);
+            } catch(e){ break; }
+          }
+
           outlineColor = darken(colorHint || fallbackPrimary(text), .55);
           drawTemplate(tpl);
           drawOutline();
@@ -426,183 +401,27 @@
         }
       }
 
-      function renderCreature(profile, colors){
-        const cx=N*0.5, cy=N*0.56;
-        const headR=N*(0.28+0.06*rng());
-        fillCircle(cx,cy,headR,colors.base);
-        const earSpan=headR*0.9;
-        if (profile.mythic){
-          fillTriangle(cx-earSpan*0.5, cy-headR*1.2, cx-headR*0.2, cy-headR*0.2, cx-earSpan, cy-headR*0.05, colors.dark);
-          fillTriangle(cx+earSpan*0.5, cy-headR*1.2, cx+headR*0.2, cy-headR*0.2, cx+earSpan, cy-headR*0.05, colors.dark);
-        } else {
-          fillCircle(cx-earSpan*0.4, cy-headR*0.9, headR*0.38, colors.light);
-          fillCircle(cx+earSpan*0.4, cy-headR*0.9, headR*0.38, colors.light);
-        }
-        if (profile.person){
-          const hair = darken(colors.accent,0.25);
-          fillRect(cx-headR, cy-headR*1.15, headR*2, headR*0.55, hair);
-        }
-        const snoutColor = lighten(colors.base,0.2);
-        fillEllipse(cx, cy+headR*0.18, headR*0.9, headR*0.55, snoutColor);
-        const eyeOffset=headR*0.45, eyeR=headR*0.18;
-        fillCircle(cx-eyeOffset, cy-headR*0.05, eyeR, '#111');
-        fillCircle(cx+eyeOffset, cy-headR*0.05, eyeR, '#111');
-        fillCircle(cx-eyeOffset, cy-headR*0.10, eyeR*0.40, lighten(colors.light,0.25));
-        fillCircle(cx+eyeOffset, cy-headR*0.10, eyeR*0.40, lighten(colors.light,0.25));
-        fillEllipse(cx, cy+headR*0.35, headR*0.42, headR*0.22, profile.person?colors.accent:darken(colors.base,0.25));
-        fillCircle(cx, cy+headR*0.32, headR*0.16, '#111');
-        if (profile.water){
-          const finColor = lighten(colors.accent,0.1);
-          fillEllipse(cx-headR*0.9, cy, headR*0.4, headR*0.2, finColor);
-          fillEllipse(cx+headR*0.9, cy, headR*0.4, headR*0.2, finColor);
-        }
-        return 'creature';
-      }
-
-      function renderFlora(profile, colors){
-        const stemColor = darken(colors.base,0.4);
-        fillRect(N*0.48, N*0.52, N*0.04, N*0.32, stemColor);
-        fillEllipse(N*0.40, N*0.64, N*0.16, N*0.10, colors.dark);
-        fillEllipse(N*0.60, N*0.64, N*0.16, N*0.10, colors.dark);
-        const petals = 6 + Math.floor(rng()*2);
-        const cx=N*0.5, cy=N*0.46;
-        for (let i=0;i<petals;i++){ const a=i*Math.PI*2/petals; fillEllipse(cx+Math.cos(a)*N*0.16, cy+Math.sin(a)*N*0.12, N*0.14, N*0.10, colors.base); }
-        fillCircle(cx, cy, N*0.10, colors.accent);
-        if (profile.food){ for (let i=0;i<4;i++){ const ang=rng()*Math.PI*2; fillCircle(cx+Math.cos(ang)*N*0.18, cy+Math.sin(ang)*N*0.18, N*0.05, lighten(colors.accent,0.2)); } }
-        return 'flora';
-      }
-
-      function renderStructure(profile, colors){
-        const width=N*0.58, height=N*0.30;
-        const x0=N*0.5-width/2, y0=N*0.58;
-        fillRect(x0, y0, width, height, colors.base);
-        fillTriangle(x0-1, y0, x0+width+1, y0, N*0.5, y0-N*0.24, colors.dark);
-        fillRect(N*0.48, y0+height*0.25, N*0.08, height*0.75, darken(colors.base,0.4));
-        fillRect(x0+width*0.15, y0+height*0.2, width*0.20, height*0.25, lighten(colors.light,0.2));
-        fillRect(x0+width*0.65, y0+height*0.2, width*0.20, height*0.25, lighten(colors.light,0.2));
-        if (profile.technology){ fillRect(N*0.35, y0+height*0.45, width*0.30, height*0.08, colors.accent); }
-        return 'structure';
-      }
-
-      function renderVehicle(profile, colors){
-        const bodyW=N*0.60, bodyH=N*0.16, bodyY=N*0.72;
-        const x0=N*0.5-bodyW/2;
-        if (profile.water){
-          fillTriangle(x0, bodyY, x0+bodyW, bodyY, x0+bodyW*0.6, bodyY+N*0.10, colors.dark);
-          fillRect(N*0.52, bodyY-bodyH*1.6, N*0.02, bodyH*1.6, darken(colors.base,0.35));
-          fillTriangle(N*0.53, bodyY-bodyH*1.6, N*0.53, bodyY-bodyH*0.4, N*0.70, bodyY-bodyH, lighten(colors.light,0.2));
-        } else if (profile.celestial){
-          fillRect(x0, bodyY-bodyH, bodyW, bodyH, colors.base);
-          fillTriangle(x0, bodyY-bodyH, N*0.5, bodyY-bodyH*1.8, x0+bodyW, bodyY-bodyH, colors.dark);
-          fillRect(N*0.5-bodyW*0.08, bodyY-bodyH*1.4, bodyW*0.16, bodyH*0.7, lighten(colors.light,0.1));
-        } else {
-          fillRect(x0, bodyY-bodyH, bodyW, bodyH, colors.base);
-          fillRect(x0+bodyW*0.15, bodyY-bodyH*1.1, bodyW*0.70, bodyH*0.5, lighten(colors.light,0.2));
-          fillCircle(x0+bodyW*0.20, bodyY, N*0.08, '#222');
-          fillCircle(x0+bodyW*0.80, bodyY, N*0.08, '#222');
-        }
-        return 'vehicle';
-      }
-
-      function renderWeapon(profile, colors){
-        const blade=lighten(colors.base,0.2);
-        fillRect(N*0.49, N*0.24, N*0.02, N*0.40, blade);
-        fillRect(N*0.47, N*0.24, N*0.02, N*0.40, darken(blade,0.2));
-        fillRect(N*0.45, N*0.46, N*0.10, N*0.06, colors.dark);
-        fillRect(N*0.49, N*0.52, N*0.02, N*0.20, darken(colors.base,0.4));
-        fillCircle(N*0.50, N*0.74, N*0.05, colors.accent);
-        return 'weapon';
-      }
-
-      function renderLandscape(profile, colors){
-        const base=colors.base;
-        fillTriangle(N*0.14,N*0.88, N*0.48,N*0.40, N*0.82,N*0.88, base);
-        fillTriangle(N*0.30,N*0.88, N*0.56,N*0.48, N*0.78,N*0.88, darken(base,0.25));
-        fillTriangle(N*0.45,N*0.55, N*0.56,N*0.40, N*0.67,N*0.55, lighten(colors.light,0.25));
-        if (profile.plant){
-          fillEllipse(N*0.24,N*0.78,N*0.18,N*0.10, colors.dark);
-          fillEllipse(N*0.70,N*0.80,N*0.20,N*0.12, colors.dark);
-        }
-        return 'landscape';
-      }
-
-      function renderSymbol(profile, colors){
-        const cx=N*0.5, cy=N*0.5;
-        fillEllipse(cx, cy, N*0.24, N*0.24, colors.base);
-        fillRect(cx-N*0.05, cy-N*0.22, N*0.10, N*0.44, colors.dark);
-        fillRect(cx-N*0.22, cy-N*0.05, N*0.44, N*0.10, colors.dark);
-        fillCircle(cx, cy, N*0.10, colors.accent);
-        return 'symbol';
-      }
-
-      function renderAbstractPattern(colors){
-        for (let i=0;i<14;i++){
-          const t=Math.floor(rng()*3);
-          const cx=rng()*(N-1);
-          const cy=rng()*(N-1);
-          const size=N*(0.08 + rng()*0.18);
-          const col=i%3===0?colors.accent:(i%3===1?colors.base:colors.light);
-          if (t===0) fillCircle(cx, cy, size*0.5, col);
-          else if (t===1) fillRect(cx-size*0.5, cy-size*0.5, size, size, col);
-          else fillTriangle(cx-size*0.5, cy+size*0.5, cx+size*0.5, cy+size*0.5, cx, cy-size*0.6, col);
-        }
-        return 'abstract';
-      }
-
-      function overlayCelestial(profile, colors){
-        const cx=N*0.78, cy=N*0.26;
-        const sunColor = lighten(colors.accent,0.15);
-        fillCircle(cx, cy, N*0.14, sunColor);
-        for (let i=0;i<8;i++){ const a=i*Math.PI/4; fillTriangle(cx, cy, cx+Math.cos(a)*N*0.20, cy+Math.sin(a)*N*0.20, cx+Math.cos(a+0.25)*N*0.15, cy+Math.sin(a+0.25)*N*0.15, sunColor); }
-      }
-
-      function overlayWeather(profile, colors){
-        const cloudColor = lighten(colors.light,0.25);
-        const baseY=N*0.30;
-        fillEllipse(N*0.30, baseY, N*0.18, N*0.10, cloudColor);
-        fillEllipse(N*0.46, baseY-N*0.04, N*0.22, N*0.12, cloudColor);
-        fillEllipse(N*0.62, baseY, N*0.18, N*0.10, cloudColor);
-        if (profile.water){
-          for (let i=0;i<6;i++){ const x = N*(0.30+i*0.08); for (let j=0;j<3;j++){ px(Math.min(N-1, Math.round(x+j%2)), Math.min(N-1, Math.round(baseY+N*0.12+j)), colors.accent); } }
-        } else {
-          for (let i=0;i<4;i++){ fillCircle(N*(0.32+i*0.12), baseY-N*0.14, N*0.03, lighten(colors.accent,0.2)); }
-        }
-      }
-
-      function overlayWater(colors){
-        const waveColor = lighten(colors.accent,0.1);
-        for (let i=0;i<5;i++){ const cx=N*(0.15+i*0.18), cy=N*(0.84-((i%2)*0.03)); fillEllipse(cx, cy, N*0.16, N*0.05, waveColor); }
-      }
-
-      function overlayFire(colors){
-        const flameColor = lighten(colors.accent,0.15);
-        for (let i=0;i<3;i++){ const baseY=N*0.74 - i*N*0.05; fillTriangle(N*0.46, baseY+N*0.10, N*0.54, baseY+N*0.10, N*0.50, baseY-N*0.12, flameColor); }
-      }
-
-      function overlayTechnology(colors){
-        const circuit = lighten(colors.dark,0.30);
-        for (let i=0;i<4;i++){
-          const x = Math.round(N*(0.25 + i*0.15));
-          for (let y=Math.round(N*0.36); y<=Math.round(N*0.78); y++){ if ((y+i)%3===0) px(x,y,circuit); }
-          fillCircle(x, Math.round(N*0.36), N*0.02, circuit);
-          fillCircle(x, Math.round(N*0.78), N*0.02, circuit);
-        }
-      }
-
-      function overlayMythic(colors){
-        const glow = lighten(colors.light,0.35);
-        fillCircle(N*0.5, N*0.30, N*0.12, glow);
-        for (let i=0;i<6;i++){ const ang=(Math.PI*2*i)/6 + rng()*0.3; fillCircle(N*0.5+Math.cos(ang)*N*0.22, N*0.30+Math.sin(ang)*N*0.22, N*0.04, glow); }
-      }
-
-      function overlayFood(colors){
-        const seed = lighten(colors.accent,0.25);
-        for (let i=0;i<8;i++){ const ang=rng()*Math.PI*2; const radius=N*0.18*rng(); fillCircle(N*0.5+Math.cos(ang)*radius, N*0.65+Math.sin(ang)*radius*0.5, N*0.03, seed); }
-      }
+      // ====== (3) 기존 절차적 합성기 (일부 축약 없이 원형 유지) ======
+      function renderCreature(profile, colors){ const cx=N*0.5, cy=N*0.56; const headR=N*(0.28+0.06*rng()); fillCircle(cx,cy,headR,colors.base); const earSpan=headR*0.9; if (profile.mythic){ fillTriangle(cx-earSpan*0.5, cy-headR*1.2, cx-headR*0.2, cy-headR*0.2, cx-earSpan, cy-headR*0.05, colors.dark); fillTriangle(cx+earSpan*0.5, cy-headR*1.2, cx+headR*0.2, cy-headR*0.2, cx+earSpan, cy-headR*0.05, colors.dark); } else { fillCircle(cx-earSpan*0.4, cy-headR*0.9, headR*0.38, colors.light); fillCircle(cx+earSpan*0.4, cy-headR*0.9, headR*0.38, colors.light); } if (profile.person){ const hair = darken(colors.accent,0.25); fillRect(cx-headR, cy-headR*1.15, headR*2, headR*0.55, hair); } const snoutColor = lighten(colors.base,0.2); fillEllipse(cx, cy+headR*0.18, headR*0.9, headR*0.55, snoutColor); const eyeOffset=headR*0.45, eyeR=headR*0.18; fillCircle(cx-eyeOffset, cy-headR*0.05, eyeR, '#111'); fillCircle(cx+eyeOffset, cy-headR*0.05, eyeR, '#111'); fillCircle(cx-eyeOffset, cy-headR*0.10, eyeR*0.40, lighten(colors.light,0.25)); fillCircle(cx+eyeOffset, cy-headR*0.10, eyeR*0.40, lighten(colors.light,0.25)); fillEllipse(cx, cy+headR*0.35, headR*0.42, headR*0.22, profile.person?colors.accent:darken(colors.base,0.25)); fillCircle(cx, cy+headR*0.32, headR*0.16, '#111'); if (profile.water){ const finColor = lighten(colors.accent,0.1); fillEllipse(cx-headR*0.9, cy, headR*0.4, headR*0.2, finColor); fillEllipse(cx+headR*0.9, cy, headR*0.4, headR*0.2, finColor); } return 'creature'; }
+      function renderFlora(profile, colors){ const stemColor = darken(colors.base,0.4); fillRect(N*0.48, N*0.52, N*0.04, N*0.32, stemColor); fillEllipse(N*0.40, N*0.64, N*0.16, N*0.10, colors.dark); fillEllipse(N*0.60, N*0.64, N*0.16, N*0.10, colors.dark); const petals = 6 + Math.floor(rng()*2); const cx=N*0.5, cy=N*0.46; for (let i=0;i<petals;i++){ const a=i*Math.PI*2/petals; fillEllipse(cx+Math.cos(a)*N*0.16, cy+Math.sin(a)*N*0.12, N*0.14, N*0.10, colors.base); } fillCircle(cx, cy, N*0.10, colors.accent); if (profile.food){ for (let i=0;i<4;i++){ const ang=rng()*Math.PI*2; fillCircle(cx+Math.cos(ang)*N*0.18, cy+Math.sin(ang)*N*0.18, N*0.05, lighten(colors.accent,0.2)); } } return 'flora'; }
+      function renderStructure(profile, colors){ const width=N*0.58, height=N*0.30; const x0=N*0.5-width/2, y0=N*0.58; fillRect(x0, y0, width, height, colors.base); fillTriangle(x0-1, y0, x0+width+1, y0, N*0.5, y0-N*0.24, colors.dark); fillRect(N*0.48, y0+height*0.25, N*0.08, height*0.75, darken(colors.base,0.4)); fillRect(x0+width*0.15, y0+height*0.2, width*0.20, height*0.25, lighten(colors.light,0.2)); fillRect(x0+width*0.65, y0+height*0.2, width*0.20, height*0.25, lighten(colors.light,0.2)); if (profile.technology){ fillRect(N*0.35, y0+height*0.45, width*0.30, height*0.08, colors.accent); } return 'structure'; }
+      function renderVehicle(profile, colors){ const bodyW=N*0.60, bodyH=N*0.16, bodyY=N*0.72; const x0=N*0.5-bodyW/2; if (profile.water){ fillTriangle(x0, bodyY, x0+bodyW, bodyY, x0+bodyW*0.6, bodyY+N*0.10, colors.dark); fillRect(N*0.52, bodyY-bodyH*1.6, N*0.02, bodyH*1.6, darken(colors.base,0.35)); fillTriangle(N*0.53, bodyY-bodyH*1.6, N*0.53, bodyY-bodyH*0.4, N*0.70, bodyY-bodyH, lighten(colors.light,0.2)); } else if (profile.celestial){ fillRect(x0, bodyY-bodyH, bodyW, bodyH, colors.base); fillTriangle(x0, bodyY-bodyH, N*0.5, bodyY-bodyH*1.8, x0+bodyW, bodyY-bodyH, colors.dark); fillRect(N*0.5-bodyW*0.08, bodyY-bodyH*1.4, bodyW*0.16, bodyH*0.7, lighten(colors.light,0.1)); } else { fillRect(x0, bodyY-bodyH, bodyW, bodyH, colors.base); fillRect(x0+bodyW*0.15, bodyY-bodyH*1.1, bodyW*0.70, bodyH*0.5, lighten(colors.light,0.2)); fillCircle(x0+bodyW*0.20, bodyY, N*0.08, '#222'); fillCircle(x0+bodyW*0.80, bodyY, N*0.08, '#222'); } return 'vehicle'; }
+      function renderWeapon(profile, colors){ const blade=lighten(colors.base,0.2); fillRect(N*0.49, N*0.24, N*0.02, N*0.40, blade); fillRect(N*0.47, N*0.24, N*0.02, N*0.40, darken(blade,0.2)); fillRect(N*0.45, N*0.46, N*0.10, N*0.06, colors.dark); fillRect(N*0.49, N*0.52, N*0.02, N*0.20, darken(colors.base,0.4)); fillCircle(N*0.50, N*0.74, N*0.05, colors.accent); return 'weapon'; }
+      function renderLandscape(profile, colors){ const base=colors.base; fillTriangle(N*0.14,N*0.88, N*0.48,N*0.40, N*0.82,N*0.88, base); fillTriangle(N*0.30,N*0.88, N*0.56,N*0.48, N*0.78,N*0.88, darken(base,0.25)); fillTriangle(N*0.45,N*0.55, N*0.56,N*0.40, N*0.67,N*0.55, lighten(colors.light,0.25)); if (profile.plant){ fillEllipse(N*0.24,N*0.78,N*0.18,N*0.10, colors.dark); fillEllipse(N*0.70,N*0.80,N*0.20,N*0.12, colors.dark); } return 'landscape'; }
+      function renderSymbol(profile, colors){ const cx=N*0.5, cy=N*0.5; fillEllipse(cx, cy, N*0.24, N*0.24, colors.base); fillRect(cx-N*0.05, cy-N*0.22, N*0.10, N*0.44, colors.dark); fillRect(cx-N*0.22, cy-N*0.05, N*0.44, N*0.10, colors.dark); fillCircle(cx, cy, N*0.10, colors.accent); return 'symbol'; }
+      function renderAbstractPattern(colors){ for (let i=0;i<14;i++){ const t=Math.floor(rng()*3); const cx=rng()*(N-1); const cy=rng()*(N-1); const size=N*(0.08 + rng()*0.18); const col=i%3===0?colors.accent:(i%3===1?colors.base:colors.light); if (t===0) fillCircle(cx, cy, size*0.5, col); else if (t===1) fillRect(cx-size*0.5, cy-size*0.5, size, size, col); else fillTriangle(cx-size*0.5, cy+size*0.5, cx+size*0.5, cy+size*0.5, cx, cy-size*0.6, col); } return 'abstract'; }
+      function overlayCelestial(profile, colors){ const cx=N*0.78, cy=N*0.26; const sunColor = lighten(colors.accent,0.15); fillCircle(cx, cy, N*0.14, sunColor); for (let i=0;i<8;i++){ const a=i*Math.PI/4; fillTriangle(cx, cy, cx+Math.cos(a)*N*0.20, cy+Math.sin(a)*N*0.20, cx+Math.cos(a+0.25)*N*0.15, cy+Math.sin(a+0.25)*N*0.15, sunColor); } }
+      function overlayWeather(profile, colors){ const cloudColor = lighten(colors.light,0.25); const baseY=N*0.30; fillEllipse(N*0.30, baseY, N*0.18, N*0.10, cloudColor); fillEllipse(N*0.46, baseY-N*0.04, N*0.22, N*0.12, cloudColor); fillEllipse(N*0.62, baseY, N*0.18, N*0.10, cloudColor); if (profile.water){ for (let i=0;i<6;i++){ const x = N*(0.30+i*0.08); for (let j=0;j<3;j++){ px(Math.min(N-1, Math.round(x+j%2)), Math.min(N-1, Math.round(baseY+N*0.12+j)), colors.accent); } } } else { for (let i=0;i<4;i++){ fillCircle(N*(0.32+i*0.12), baseY-N*0.14, N*0.03, lighten(colors.accent,0.2)); } } }
+      function overlayWater(colors){ const waveColor = lighten(colors.accent,0.1); for (let i=0;i<5;i++){ const cx=N*(0.15+i*0.18), cy=N*(0.84-((i%2)*0.03)); fillEllipse(cx, cy, N*0.16, N*0.05, waveColor); } }
+      function overlayFire(colors){ const flameColor = lighten(colors.accent,0.15); for (let i=0;i<3;i++){ const baseY=N*0.74 - i*N*0.05; fillTriangle(N*0.46, baseY+N*0.10, N*0.54, baseY+N*0.10, N*0.50, baseY-N*0.12, flameColor); } }
+      function overlayTechnology(colors){ const circuit = lighten(colors.dark,0.30); for (let i=0;i<4;i++){ const x = Math.round(N*(0.25 + i*0.15)); for (let y=Math.round(N*0.36); y<=Math.round(N*0.78); y++){ if ((y+i)%3===0) px(x,y,circuit); } fillCircle(x, Math.round(N*0.36), N*0.02, circuit); fillCircle(x, Math.round(N*0.78), N*0.02, circuit); } }
+      function overlayMythic(colors){ const glow = lighten(colors.light,0.35); fillCircle(N*0.5, N*0.30, N*0.12, glow); for (let i=0;i<6;i++){ const ang=(Math.PI*2*i)/6 + rng()*0.3; fillCircle(N*0.5+Math.cos(ang)*N*0.22, N*0.30+Math.sin(ang)*N*0.22, N*0.04, glow); } }
+      function overlayFood(colors){ const seed = lighten(colors.accent,0.25); for (let i=0;i<8;i++){ const ang=rng()*Math.PI*2; const radius=N*0.18*rng(); fillCircle(N*0.5+Math.cos(ang)*radius, N*0.65+Math.sin(ang)*radius*0.5, N*0.03, seed); } }
 
       function generateProceduralArt(text, hints){
-        clearAll();
-        mirrorOverride = null;
+        // 모티프 우선
+        if (tryMotifOnce(text)) return;
+        clearAll(); mirrorOverride = null;
         const lexical = hints||[];
         const profile = buildSemanticProfile(text, lexical);
         const primary = primaryFromText(text, fallbackPrimary(text));
@@ -632,14 +451,13 @@
         if (profile.technology){ overlayTechnology(colors); summary.push('tech'); }
         if (profile.mythic){ overlayMythic(colors); summary.push('mythic'); }
         if (profile.food){ overlayFood(colors); summary.push('food'); }
-        drawOutline();
-        applyBackground();
-        drawGridOverlay();
+        drawOutline(); applyBackground(); drawGridOverlay();
         const lexLog = summarizeHintsForLog(lexical);
         const summaryText = summary.filter(Boolean).join(', ');
         log(`완료(Procedural): ${summaryText||'abstract'}${lexLog?` — ${lexLog}`:''}`);
       }
 
+      // ====== (4) 엔트리포인트 ======
       async function generate(){
         $('#generate').disabled = true; $('#remix').disabled = true;
         const text = $('#prompt').value.trim();
@@ -672,15 +490,13 @@
 
       $('#generate').addEventListener('click', generate);
       $('#remix').addEventListener('click', ()=>{ $('#seed').value = (parseInt($('#seed').value||'0',10)+1)%1000000; generate(); });
-      $('#download').addEventListener('click', ()=>{
-        const a=document.createElement('a'); a.download='pixel-art.png'; a.href=cv.toDataURL('image/png'); a.click();
-      });
+      $('#download').addEventListener('click', ()=>{ const a=document.createElement('a'); a.download='pixel-art.png'; a.href=cv.toDataURL('image/png'); a.click(); });
       $('#transparent').addEventListener('change', ()=>{ generate(); });
       $('#bg').addEventListener('input', ()=>{ if (!$('#transparent').checked) generate(); });
       $('#prompt').addEventListener('keydown', (e)=>{ if (e.key==='Enter') generate(); });
 
       setSize(24);
-      log('텍스트를 입력하고 Generate를 눌러보세요.');
+      log('텍스트를 입력하고 Generate를 눌러보세요. (예: "빨간 하트")');
     </script>
   </body>
 </html>
