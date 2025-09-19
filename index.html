@@ -159,6 +159,11 @@
       let promptLimit = navigator.gpu ? 1100 : 700;
       const SAFE_PROMPT_PATTERN = /[^\p{L}\p{N}\p{Zs}.,!?"'()\-]/gu;
 
+      const DEFAULT_GENERATION_OPTIONS = {
+        do_sample: false,
+        repetition_penalty: 1.1,
+      };
+
       const MAX_GPU_PROMPT_CHARS = 1100;
       const MAX_CPU_PROMPT_CHARS = 700;
       const MODEL_CHOICES = {
@@ -329,7 +334,7 @@
         return [];
       }
 
-      const STEP1_FILLER_PATTERN = /(Step\s*\d|Response|The following|List of|instructions?)/i;
+      const STEP1_FILLER_PATTERN = /(Step\s*\d|Response|The following|List of|instructions?|The same|Theory|This is a list)/i;
 
       function summarizeStep1(data) {
         const subject = String(data?.subject || '').trim();
@@ -354,6 +359,263 @@
         return { valid: true, subject, traits, symbolism, notes };
       }
 
+      function isLoopingText(text) {
+        if (!text) return false;
+        const normalized = String(text).toLowerCase();
+        const segments = ['the following', 'the same', 'list', 'response'];
+        let loopCount = 0;
+        for (const segment of segments) {
+          const occurrences = normalized.split(segment).length - 1;
+          if ((segment === 'the following' && occurrences >= 2) || occurrences >= 5) {
+            return true;
+          }
+          loopCount += occurrences;
+        }
+        if (loopCount >= 8) {
+          return true;
+        }
+        const words = normalized
+          .replace(/[^a-z0-9\s]/g, ' ')
+          .split(/\s+/)
+          .filter(Boolean);
+        if (!words.length) return false;
+        const threshold = Math.max(4, Math.floor(words.length * 0.25));
+        const counts = new Map();
+        for (const word of words) {
+          const nextCount = (counts.get(word) || 0) + 1;
+          if (nextCount >= threshold) {
+            return true;
+          }
+          counts.set(word, nextCount);
+        }
+        return false;
+      }
+
+      function buildStep1Prompt(userPrompt, { retry = false } = {}) {
+        const lines = [
+          'PixelScholar Step 1.',
+          `User prompt: "${userPrompt}"`,
+          'Goal: capture literal planning details for pixel art.',
+          'Return exactly one JSON object with this schema:',
+          '{"subject":"","traits":["","",""],"symbolism":["",""],"notes":""}',
+          'Rules:',
+          '- subject = short noun phrase under 60 characters.',
+          '- traits = three to five concrete physical traits.',
+          '- symbolism = two or three emblematic visual cues.',
+          '- notes = one practical art direction note.',
+          '- Use double quotes only, no trailing commas, no extra words before or after the JSON.',
+          '- Keep every value factual, visual, and under 80 characters.',
+        ];
+        if (retry) {
+          lines.push(
+            'Do not reference steps, responses, lists, or instructions.',
+            'If unsure, invent reasonable visual specifics that match the user prompt.',
+          );
+        } else {
+          lines.push('Avoid repeating phrases or filler language. Fill every field with concrete visuals.');
+        }
+        return lines.join('\n');
+      }
+
+      function parseStep1Response(raw) {
+        if (!raw || isLoopingText(raw)) {
+          return { valid: false, reason: 'Detected repeated filler text instead of structured JSON.' };
+        }
+        try {
+          const data = extractJSON(raw);
+          return summarizeStep1(data);
+        } catch (error) {
+          return { valid: false, reason: error?.message || 'Could not parse JSON from the response.' };
+        }
+      }
+
+      function cleanSingleLine(text, maxLen = 80) {
+        if (!text) return '';
+        let line = String(text)
+          .replace(/```[\s\S]*?```/g, ' ')
+          .split(/[\r\n]+/)[0]
+          .trim();
+        if (!line) return '';
+        if (line.includes(':')) {
+          const [prefix, ...rest] = line.split(':');
+          if (prefix.length <= 20 && rest.length) {
+            line = rest.join(':').trim();
+          }
+        }
+        line = line.replace(/^['"`*-\s]+/, '').replace(/['"`*-\s]+$/, '').trim();
+        line = line.replace(/\s{2,}/g, ' ');
+        if (!line || STEP1_FILLER_PATTERN.test(line)) {
+          return '';
+        }
+        if (line.length > maxLen) {
+          line = line.slice(0, maxLen).trim();
+        }
+        return line;
+      }
+
+      function cleanListEntries(value, maxItems = 5, maxLen = 80) {
+        const entries = normalizeList(value)
+          .map((item) => cleanSingleLine(item, maxLen))
+          .filter(Boolean);
+        const unique = [];
+        for (const entry of entries) {
+          if (!unique.includes(entry)) {
+            unique.push(entry);
+          }
+        }
+        return unique.slice(0, maxItems);
+      }
+
+      function derivePhrasesFromPrompt(prompt) {
+        if (!prompt) return [];
+        const segments = String(prompt)
+          .split(/[,;/]| with | and | featuring | holding | wearing | atop | riding /gi)
+          .map((segment) => cleanSingleLine(segment, 60))
+          .filter(Boolean);
+        const unique = [];
+        for (const segment of segments) {
+          if (!unique.includes(segment)) {
+            unique.push(segment);
+          }
+        }
+        return unique;
+      }
+
+      function ensureMinimumList(list, min, fallbackCandidates) {
+        const result = [];
+        const seen = new Set();
+        for (const item of list || []) {
+          if (!item || seen.has(item)) continue;
+          seen.add(item);
+          result.push(item);
+        }
+        for (const candidate of fallbackCandidates || []) {
+          if (result.length >= min) break;
+          if (!candidate || seen.has(candidate)) continue;
+          seen.add(candidate);
+          result.push(candidate);
+        }
+        return result;
+      }
+
+      async function runStep1Fallback(userPrompt) {
+        const subjectPrompt = [
+          'PixelScholar Step 1 fallback.',
+          `User prompt: "${userPrompt}"`,
+          'Reply with the main subject in this exact format: SUBJECT: <short noun phrase>.',
+          'Keep it under 60 characters and avoid commentary or meta language.',
+        ].join('\n');
+        const subjectRaw = await generateText(subjectPrompt, 80, 'Step 1 Fallback – Subject');
+        const subjectLine = cleanSingleLine(subjectRaw, 60);
+
+        const traitsPromptBase = [
+          'PixelScholar Step 1 fallback.',
+          `Subject: ${subjectLine || userPrompt}`,
+          'Reply with exactly three concrete physical traits separated by commas.',
+          'Format: TRAITS: trait one, trait two, trait three.',
+          'Keep each trait under 60 characters and avoid numbering.',
+        ];
+        let traits = cleanListEntries(
+          await generateText(traitsPromptBase.join('\n'), 120, 'Step 1 Fallback – Traits'),
+          5,
+          60,
+        );
+        if (traits.length < 3) {
+          const traitsRetryPrompt = [
+            ...traitsPromptBase,
+            'Reminder: supply three different visual descriptors separated by commas with no extra text.',
+          ].join('\n');
+          traits = cleanListEntries(
+            await generateText(traitsRetryPrompt, 120, 'Step 1 Fallback – Traits Retry'),
+            5,
+            60,
+          );
+        }
+
+        const symbolismPromptBase = [
+          'PixelScholar Step 1 fallback.',
+          `Subject: ${subjectLine || userPrompt}`,
+          'Provide at least two symbolism cues separated by commas.',
+          'Format: SYMBOLISM: cue one, cue two[, cue three].',
+          'Keep each cue under 60 characters and tie them to the subject.',
+        ];
+        let symbolism = cleanListEntries(
+          await generateText(symbolismPromptBase.join('\n'), 120, 'Step 1 Fallback – Symbolism'),
+          5,
+          60,
+        );
+        if (symbolism.length < 2) {
+          const symbolismRetryPrompt = [
+            ...symbolismPromptBase,
+            'Reminder: give emblematic visual cues only, no prose or meta commentary.',
+          ].join('\n');
+          symbolism = cleanListEntries(
+            await generateText(symbolismRetryPrompt, 120, 'Step 1 Fallback – Symbolism Retry'),
+            5,
+            60,
+          );
+        }
+
+        const notesPromptBase = [
+          'PixelScholar Step 1 fallback.',
+          `Subject: ${subjectLine || userPrompt}`,
+          'Give one practical art direction note in this format: NOTE: <tip>.',
+          'Keep it under 100 characters and avoid filler words.',
+        ];
+        let notes = cleanSingleLine(
+          await generateText(notesPromptBase.join('\n'), 100, 'Step 1 Fallback – Note'),
+          100,
+        );
+        if (!notes) {
+          const notesRetryPrompt = [
+            ...notesPromptBase,
+            'Reminder: provide a direct rendering instruction with concrete guidance.',
+          ].join('\n');
+          notes = cleanSingleLine(
+            await generateText(notesRetryPrompt, 100, 'Step 1 Fallback – Note Retry'),
+            100,
+          );
+        }
+
+        const derived = derivePhrasesFromPrompt(userPrompt);
+        const subject = cleanSingleLine(subjectLine || derived[0] || userPrompt, 60) || 'Focal subject';
+        const traitsFilled = ensureMinimumList(
+          traits,
+          3,
+          derived.filter((item) => item !== subject),
+        ).slice(0, 5);
+        const defaultTraits = ['bold silhouette', 'clear focal pose', 'defined highlight edges'];
+        for (const fallback of defaultTraits) {
+          if (traitsFilled.length >= 3) break;
+          if (!traitsFilled.includes(fallback)) {
+            traitsFilled.push(fallback);
+          }
+        }
+
+        const symbolismFilled = ensureMinimumList(
+          symbolism,
+          2,
+          derived.filter((item) => item !== subject && !traitsFilled.includes(item)),
+        ).slice(0, 5);
+        const defaultSymbolism = ['heroic aura', 'protective emblem'];
+        for (const fallback of defaultSymbolism) {
+          if (symbolismFilled.length >= 2) break;
+          if (!symbolismFilled.includes(fallback)) {
+            symbolismFilled.push(fallback);
+          }
+        }
+
+        const fallbackNote =
+          notes || (subject ? `Use bold lighting to emphasize the ${subject}.` : 'Use bold lighting to emphasize the focal subject.');
+
+        return summarizeStep1({
+          subject,
+          traits: traitsFilled,
+          symbolism: symbolismFilled,
+          notes: fallbackNote,
+        });
+      }
+
       function uniqueColors(values) {
         const set = new Set();
         for (const value of values) {
@@ -366,15 +628,16 @@
         return Array.from(set);
       }
 
-      async function generateText(prompt, maxTokens, stepLabel) {
+      async function generateText(prompt, maxTokens, stepLabel, overrides = {}) {
         appendMessage('user', `${stepLabel} – Request`, prompt);
         console.info(
           `[${stepLabel}] prompt length: ${prompt.length} chars (≈${estimateTokens(prompt)} tokens). max_new_tokens=${maxTokens}`,
         );
         const out = await llm(prompt, {
           max_new_tokens: maxTokens,
-          do_sample: false,
           return_full_text: false,
+          ...DEFAULT_GENERATION_OPTIONS,
+          ...overrides,
         });
         const raw = String(out?.[0]?.generated_text || '').trim();
         appendMessage('assistant', `${stepLabel} – Response`, raw);
@@ -406,34 +669,36 @@
         appendMessage('user', 'User Prompt', userPrompt);
 
         setStatus('Step 1/5 – Analyzing the subject...');
-        const step1Prompt = [
-          'PixelScholar Step 1.',
-          `User prompt: "${userPrompt}"`,
-          'Task: capture literal details for pixel art planning.',
-          'Return JSON only. Format: {"subject":"","traits":[""],"symbolism":[""],"notes":""}.',
-          'Fill the template with real text, keep it factual, and avoid opinions.',
-          'traits = at least three short physical features.',
-          'symbolism = at least two emblematic cues linked to the subject.',
-          'notes = at least one practical art direction tip.',
-          'Keep every value under 80 characters, describe concrete visuals, and do not repeat these instructions.'
-        ].join('\n');
+        const step1Prompt = buildStep1Prompt(userPrompt);
         const step1Raw = await generateText(step1Prompt, 220, 'Step 1');
-        let step1 = extractJSON(step1Raw);
-        let summary = summarizeStep1(step1);
+        let summary = parseStep1Response(step1Raw);
+
         if (!summary.valid) {
-          appendMessage('assistant', 'Step 1 – Validator', `${summary.reason} Retrying with clearer instructions.`);
+          appendMessage(
+            'assistant',
+            'Step 1 – Validator',
+            `${summary.reason} Retrying with a reinforced JSON format.`,
+          );
           setStatus('Step 1 retry – Requesting clearer details...');
-          const retryPrompt = [
-            step1Prompt,
-            'Reminder: Provide concrete descriptors only. Do not echo the prompt or mention steps, responses, or lists.',
-          ].join('\n');
+          const retryPrompt = buildStep1Prompt(userPrompt, { retry: true });
           const step1RetryRaw = await generateText(retryPrompt, 200, 'Step 1 Retry');
-          step1 = extractJSON(step1RetryRaw);
-          summary = summarizeStep1(step1);
+          summary = parseStep1Response(step1RetryRaw);
+
           if (!summary.valid) {
-            throw new Error('Step 1 did not return usable JSON after a retry.');
+            appendMessage(
+              'assistant',
+              'Step 1 – Validator',
+              'Falling back to guided prompts to extract the subject, traits, symbolism, and notes.',
+            );
+            setStatus('Step 1 fallback – Guiding the model through each field...');
+            summary = await runStep1Fallback(userPrompt);
           }
         }
+
+        if (!summary?.valid) {
+          throw new Error(summary?.reason || 'Step 1 did not return usable planning data after fallback.');
+        }
+
         const { subject, traits, symbolism, notes } = summary;
 
         setStatus('Step 2/5 – Designing visual motifs...');
