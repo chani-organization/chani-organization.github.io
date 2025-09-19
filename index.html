@@ -155,6 +155,46 @@
 
       let hf = null;
       let llm = null;
+      let llmPromise = null;
+      let promptLimit = navigator.gpu ? 1100 : 700;
+
+      const MAX_GPU_PROMPT_CHARS = 1100;
+      const MAX_CPU_PROMPT_CHARS = 700;
+      const MODEL_CHOICES = {
+        webgpu: [
+          {
+            id: 'onnx-community/TinyLlama-1.1B-Chat-v1.0',
+            label: 'TinyLlama 1.1B Chat (q4)',
+            device: 'webgpu',
+            dtype: 'q4',
+            context: '≈2K token context window',
+            promptLimit: MAX_GPU_PROMPT_CHARS,
+            fallbackNotice: 'Falling back to a lighter 150M model to keep memory use low.',
+          },
+          {
+            id: 'onnx-community/ettin-decoder-150m-ONNX',
+            label: 'Ettin Decoder 150M (q4)',
+            device: 'webgpu',
+            dtype: 'q4',
+            context: '≈1K token context window',
+            promptLimit: 850,
+          },
+        ],
+        wasm: [
+          {
+            id: 'onnx-community/ettin-decoder-150m-ONNX',
+            label: 'Ettin Decoder 150M (q8)',
+            device: 'wasm',
+            dtype: 'q8',
+            context: '≈1K token context window',
+            promptLimit: MAX_CPU_PROMPT_CHARS,
+          },
+        ],
+      };
+
+      function estimateTokens(text) {
+        return Math.ceil((text?.length || 0) / 4);
+      }
 
       function setStatus(text) {
         statusEl.textContent = text;
@@ -195,21 +235,64 @@
 
       async function ensureLLM() {
         if (llm) return;
-        setStatus('Loading the model...');
-        hf = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.0');
-        hf.env.allowRemoteModels = true;
-        const device = navigator.gpu ? 'webgpu' : 'wasm';
-        const dtype = navigator.gpu ? 'q4' : 'q8';
-        llm = await hf.pipeline('text-generation', 'onnx-community/ettin-decoder-150m-ONNX', {
-          device,
-          dtype,
-          progress_callback: (progress) => {
-            if (progress?.status && progress?.progress != null) {
-              setStatus(`Model loading ${Math.round(progress.progress * 100)}%`);
+        if (llmPromise) {
+          await llmPromise;
+          return;
+        }
+
+        llmPromise = (async () => {
+          setStatus('Initializing Transformers.js runtime...');
+          if (!hf) {
+            hf = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.0');
+            hf.env.allowRemoteModels = true;
+          }
+
+          const hasWebGPU = Boolean(navigator.gpu);
+          const candidates = [...(MODEL_CHOICES[hasWebGPU ? 'webgpu' : 'wasm'] || [])];
+          const loadErrors = [];
+
+          for (const candidate of candidates) {
+            try {
+              setStatus(`Loading ${candidate.label}...`);
+              const pipeline = await hf.pipeline('text-generation', candidate.id, {
+                device: candidate.device,
+                dtype: candidate.dtype,
+                progress_callback: (progress) => {
+                  if (progress?.status && progress?.progress != null) {
+                    setStatus(`Loading ${candidate.label} ${Math.round(progress.progress * 100)}%`);
+                  }
+                },
+              });
+              llm = pipeline;
+              if (typeof candidate.promptLimit === 'number') {
+                promptLimit = candidate.promptLimit;
+              } else {
+                promptLimit = hasWebGPU ? MAX_GPU_PROMPT_CHARS : MAX_CPU_PROMPT_CHARS;
+              }
+              appendMessage(
+                'assistant',
+                'Model Loader',
+                `Using ${candidate.label} with ${candidate.context}. Keep prompts under ${promptLimit} characters for reliable runs.`,
+              );
+              setStatus(`Model ready. Starting Step 1 dialogue with ${candidate.label}.`);
+              return;
+            } catch (error) {
+              console.warn(`Failed to load ${candidate.id}`, error);
+              loadErrors.push(`${candidate.label}: ${error?.message || 'Unknown error'}`);
+              if (candidate.fallbackNotice) {
+                appendMessage('assistant', 'Model Loader', candidate.fallbackNotice);
+              }
             }
-          },
-        });
-        setStatus('Model ready. Starting Step 1 dialogue.');
+          }
+
+          throw new Error(`Unable to load a supported model. ${loadErrors.join(' | ')}`);
+        })();
+
+        try {
+          await llmPromise;
+        } finally {
+          llmPromise = null;
+        }
       }
 
       function extractJSON(text) {
@@ -248,6 +331,9 @@
 
       async function generateText(prompt, maxTokens, stepLabel) {
         appendMessage('user', `${stepLabel} – Request`, prompt);
+        console.info(
+          `[${stepLabel}] prompt length: ${prompt.length} chars (≈${estimateTokens(prompt)} tokens). max_new_tokens=${maxTokens}`,
+        );
         const out = await llm(prompt, {
           max_new_tokens: maxTokens,
           do_sample: false,
@@ -392,6 +478,14 @@
       async function handleGenerate() {
         const text = promptInput.value.trim();
         if (!text) return;
+        if (text.length > promptLimit) {
+          appendError(
+            'Prompt Too Long',
+            `The request has ${text.length} characters. Please split it into chunks under ${promptLimit} characters to avoid context overflows.`,
+          );
+          setStatus(`Prompt exceeds the ${promptLimit}-character safety budget. Shorten the request and retry.`);
+          return;
+        }
         logEl.innerHTML = '';
         generateBtn.disabled = true;
         setStatus('Preparing the LLM for a five-step dialogue...');
@@ -415,7 +509,19 @@
       });
 
       clearCanvas(24);
-      appendMessage('assistant', 'Guide', 'Enter a prompt and press Generate to launch a five-step English dialogue that produces a pixel-art template.');
+      const hardwareMessage = navigator.gpu
+        ? 'WebGPU detected. The app will try the upgraded TinyLlama 1.1B Chat (q4) model first for a longer context window.'
+        : 'WebGPU unavailable. The app will use the compact Ettin 150M model via WASM for broad compatibility.';
+      appendMessage(
+        'assistant',
+        'System',
+        `${hardwareMessage} Keep each request concise—ideally under ${promptLimit} characters—and split lengthy briefs into sequential runs.`,
+      );
+      appendMessage(
+        'assistant',
+        'Guide',
+        'Enter a prompt and press Generate to launch a five-step English dialogue that produces a pixel-art template. Track progress in the status bar and console token estimates.',
+      );
       promptInput.focus();
     </script>
   </body>
