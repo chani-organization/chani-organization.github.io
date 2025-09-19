@@ -157,6 +157,7 @@
       let llm = null;
       let llmPromise = null;
       let promptLimit = navigator.gpu ? 1100 : 700;
+      const SAFE_PROMPT_PATTERN = /[^\p{L}\p{N}\p{Zs}.,!?"'()\-]/gu;
 
       const MAX_GPU_PROMPT_CHARS = 1100;
       const MAX_CPU_PROMPT_CHARS = 700;
@@ -203,8 +204,10 @@
       function sanitizePrompt(text) {
         if (!text) return '';
         return text
+          .normalize('NFC')
           .replace(/[\n\r\t]+/g, ' ')
           .replace(/[\\/][nrt]/gi, ' ')
+          .replace(SAFE_PROMPT_PATTERN, ' ')
           .replace(/\s{2,}/g, ' ')
           .trim();
       }
