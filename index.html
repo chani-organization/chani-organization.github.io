@@ -370,12 +370,13 @@
 
         setStatus('Step 1/5 – Analyzing the subject...');
         const step1Prompt = [
-          'You are PixelScholar, Step 1.',
+          'PixelScholar Step 1.',
           `User prompt: "${userPrompt}"`,
-          'Interpret the literal meaning of the subject and identify distinctive features for pixel art.',
-          'Respond with JSON only in the form {"subject": string, "traits": [string...], "symbolism": [string...], "notes": string}.',
-          'List at least three concrete traits and at least two symbolism cues.',
-          'Exclude subjective impressions and focus on physical details and emblematic elements.'
+          'Task: capture literal details for pixel art planning.',
+          'Return JSON only. Format: {"subject":"","traits":[""],"symbolism":[""],"notes":""}.',
+          'Fill the template with real text, keep it factual, and avoid opinions.',
+          'traits = at least three short physical features.',
+          'symbolism = at least two emblematic cues linked to the subject.'
         ].join('\n');
         const step1Raw = await generateText(step1Prompt, 220, 'Step 1');
         const step1 = extractJSON(step1Raw);
@@ -385,13 +386,15 @@
 
         setStatus('Step 2/5 – Designing visual motifs...');
         const step2Prompt = [
-          'You are PixelScholar, Step 2.',
+          'PixelScholar Step 2.',
           `Subject: ${subject}`,
-          `Core traits: ${traits.join(', ') || 'None'}`,
+          `Traits: ${traits.join(', ') || 'None'}`,
           `Symbolism: ${symbolism.join(', ') || 'None'}`,
-          'Design the main motifs that should appear in the pixel art.',
-          'Respond with JSON only in the form {"motifs": [string...], "featurePriority": [string...], "silhouette": string}.',
-          'Write three to four concise motif ideas and list at least three standout details in featurePriority.'
+          'Plan the main visuals to paint.',
+          'Return JSON only. Format: {"motifs":[""],"featurePriority":[""],"silhouette":""}.',
+          'Fill the template with real words and remove blank items.',
+          'motifs = three or four short noun phrases.',
+          'featurePriority = at least three concrete elements to emphasize.'
         ].join('\n');
         const step2Raw = await generateText(step2Prompt, 220, 'Step 2');
         const step2 = extractJSON(step2Raw);
@@ -401,13 +404,15 @@
 
         setStatus('Step 3/5 – Building the color palette...');
         const step3Prompt = [
-          'You are PixelScholar, Step 3.',
+          'PixelScholar Step 3.',
           `Subject: ${subject}`,
           `Motifs: ${motifs.join(', ') || 'None'}`,
           `Priority features: ${featurePriority.join(', ') || 'None'}`,
-          'Propose a pixel-art color palette using #RRGGBB hex colors.',
-          'Respond with JSON only in the form {"palette": ["#RRGGBB"...], "accent": "#RRGGBB", "support": ["#RRGGBB"...], "notes": string}.',
-          'Provide three to five base colors in palette, exactly one accent color, and one to three support colors with no duplicates.'
+          'Build a #RRGGBB palette for the scene.',
+          'Return JSON only. Format: {"palette":["#RRGGBB"],"accent":"#RRGGBB","support":["#RRGGBB"],"notes":""}.',
+          'Fill the template with real colors and notes.',
+          'palette = three to five unique base colors (uppercase hex).',
+          'accent = one highlight color. support = one to three extra colors without duplicates.'
         ].join('\n');
         const step3Raw = await generateText(step3Prompt, 220, 'Step 3');
         const step3 = extractJSON(step3Raw);
@@ -420,15 +425,16 @@
 
         setStatus('Step 4/5 – Mapping the composition...');
         const step4Prompt = [
-          'You are PixelScholar, Step 4.',
+          'PixelScholar Step 4.',
           `Subject: ${subject}`,
           `Motifs: ${motifs.join(', ') || 'None'}`,
           `Priority details: ${featurePriority.join(', ') || 'None'}`,
           `Palette colors: ${colors.join(', ')}`,
           `Accent color: ${accent}`,
-          'Describe the concrete composition for a 24x24 pixel canvas.',
-          'Respond with JSON only in the form {"composition": string, "layering": [string...], "keyClusters": [string...], "focalPixels": [string...]}.',
-          'Clarify foreground/background order in layering, group related elements in keyClusters, and highlight focal points in focalPixels.'
+          'Explain the 24x24 layout.',
+          'Return JSON only. Format: {"composition":"","layering":[""],"keyClusters":[""],"focalPixels":[""]}.',
+          'Write short factual text, no blank items, no extra commentary.',
+          'layering = front to back order. keyClusters = grouped zones. focalPixels = short tips for the brightest spots.'
         ].join('\n');
         const step4Raw = await generateText(step4Prompt, 240, 'Step 4');
         const step4 = extractJSON(step4Raw);
@@ -445,23 +451,22 @@
         });
         const paletteDescription = JSON.stringify(paletteMap, null, 2);
         const step5Prompt = [
-          'You are PixelScholar, Step 5.',
-          'Using every detail from the previous steps, create a pixel-art template.',
+          'PixelScholar Step 5.',
+          'Use every note so far to build the template.',
           `Subject: ${subject}`,
           `Core traits: ${traits.join(', ') || 'None'}`,
           `Motifs: ${motifs.join(', ') || 'None'}`,
-          `Silhouette summary: ${silhouette || 'Keep a clear subject silhouette'}`,
+          `Silhouette guide: ${silhouette || 'Keep a clear subject silhouette'}`,
           `Layout guide: ${composition || 'Place the subject near the center foreground'}`,
           `Layer order: ${layering.join(' -> ') || 'Single layer'}`,
           `Key clusters: ${keyClusters.join(', ') || 'Focus clusters around the subject'}`,
           `Focal points: ${focalPixels.join(', ') || 'Emphasize the subject core'}`,
-          `Available palette (key:color): ${paletteDescription}`,
-          `Use ${accent} as the highlight color to emphasize the priority details.`,
-          'Work in a 24x24 grid where 0 is transparent/background and other characters reference palette keys only.',
-          'Keep total coverage between 25% and 50%, forming cohesive blocks that express the symbolic traits.',
-          'Return JSON only in the exact form {"size":24,"palette":{...},"data":[24 strings]}.',
-          'Each string in data must be length 24 and may contain "0" or palette keys only.',
-          'Use only the provided palette keys and do not invent new colors.'
+          `Palette map (key:color): ${paletteDescription}`,
+          `Highlight color: ${accent}`,
+          'Return JSON only. Exact format: {"size":24,"palette":{...},"data":["........................"]}.',
+          'Grid is 24x24. Use "0" for background and palette keys 1-9 for painted pixels.',
+          'Aim for 25%–50% filled cells with connected shapes that show the symbolism.',
+          'Use only the supplied palette keys, keep each string length 24, and do not add text outside the JSON.'
         ].join('\n');
         const step5Raw = await generateText(step5Prompt, 420, 'Step 5');
         const step5 = extractJSON(step5Raw);
