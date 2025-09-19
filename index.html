@@ -977,6 +977,196 @@
         return Array.from(set);
       }
 
+      function validateStep5Template(data, fallbackPalette) {
+        if (!data || typeof data !== 'object') {
+          return { valid: false, reason: 'Step 5 returned no JSON object.' };
+        }
+        const size = Number(data.size);
+        if (!Number.isFinite(size) || size !== 24) {
+          return { valid: false, reason: 'Template must declare size 24.' };
+        }
+        const palette =
+          (data.palette && typeof data.palette === 'object' && Object.keys(data.palette).length
+            ? data.palette
+            : fallbackPalette) || {};
+        const paletteKeys = Object.keys(palette);
+        if (!paletteKeys.length) {
+          return { valid: false, reason: 'Palette definition missing from Step 5 output.' };
+        }
+        const rows = Array.isArray(data.data) ? data.data : [];
+        if (rows.length !== size) {
+          return { valid: false, reason: 'Template rows must match the declared size.' };
+        }
+        const allowed = new Set(['0', ...paletteKeys]);
+        const normalized = [];
+        for (const row of rows) {
+          const line = String(row || '');
+          if (line.length !== size) {
+            return { valid: false, reason: 'Each template row must contain exactly 24 characters.' };
+          }
+          for (const ch of line) {
+            if (!allowed.has(ch)) {
+              return { valid: false, reason: `Unexpected palette key "${ch}" detected.` };
+            }
+          }
+          normalized.push(line);
+        }
+        return { valid: true, template: { size, palette, data: normalized } };
+      }
+
+      function buildProceduralTemplate({
+        paletteMap,
+        accentColor,
+        supportColors,
+        silhouette,
+        composition,
+        layering,
+        keyClusters,
+        focalPixels,
+      }) {
+        const size = 24;
+        const palette = { ...(paletteMap || {}) };
+        if (!Object.keys(palette).length) {
+          Object.assign(palette, {
+            1: '#111827',
+            2: '#334155',
+            3: '#94A3B8',
+            4: '#E2E8F0',
+            5: '#FACC15',
+            6: '#F97316',
+          });
+        }
+        const keys = Object.keys(palette)
+          .map((key) => String(key))
+          .sort((a, b) => Number(a) - Number(b))
+          .slice(0, 9);
+        const lookupColorKey = (color) => {
+          if (!color) return '';
+          const target = String(color).toUpperCase();
+          return keys.find((key) => String(palette[key]).toUpperCase() === target) || '';
+        };
+        let accentKey = lookupColorKey(accentColor);
+        if (!accentKey) {
+          accentKey = keys[keys.length - 1];
+        }
+        const supportKeyFromPalette = (supportColors || [])
+          .map((color) => lookupColorKey(color))
+          .find((key) => key && key !== accentKey);
+        const darkKey = keys[0];
+        const midKey = keys[1] || darkKey;
+        const lightKey = keys[2] || accentKey;
+        const warmKey =
+          supportKeyFromPalette || keys.find((key) => ![darkKey, midKey, lightKey, accentKey].includes(key)) || midKey;
+
+        const grid = Array.from({ length: size }, () => Array(size).fill('0'));
+        const center = Math.floor(size / 2);
+        const setPixel = (x, y, key) => {
+          if (x >= 0 && x < size && y >= 0 && y < size) {
+            grid[y][x] = key;
+          }
+        };
+        const fillSymmetricRow = (y, halfWidth, key) => {
+          for (let dx = -halfWidth; dx <= halfWidth; dx += 1) {
+            setPixel(center + dx, y, key);
+          }
+        };
+
+        for (let x = center - 6; x <= center + 6; x += 1) {
+          setPixel(x, size - 4, darkKey);
+        }
+        for (let x = center - 5; x <= center + 5; x += 1) {
+          setPixel(x, size - 3, darkKey);
+        }
+
+        for (let y = 6; y <= 16; y += 1) {
+          setPixel(center - 5, y, warmKey);
+          setPixel(center + 5, y, warmKey);
+          if (y % 2 === 0) {
+            setPixel(center - 6, y, warmKey);
+            setPixel(center + 6, y, warmKey);
+          }
+        }
+
+        fillSymmetricRow(4, 1, midKey);
+        setPixel(center, 4, accentKey);
+        fillSymmetricRow(5, 2, midKey);
+        setPixel(center - 1, 5, lightKey);
+        setPixel(center + 1, 5, lightKey);
+
+        fillSymmetricRow(6, 3, midKey);
+        setPixel(center - 3, 6, darkKey);
+        setPixel(center + 3, 6, darkKey);
+        fillSymmetricRow(7, 3, midKey);
+        fillSymmetricRow(8, 3, midKey);
+        fillSymmetricRow(9, 2, midKey);
+        fillSymmetricRow(10, 2, midKey);
+        fillSymmetricRow(11, 2, midKey);
+
+        for (let y = 6; y <= 11; y += 1) {
+          setPixel(center, y, lightKey);
+        }
+        setPixel(center, 7, accentKey);
+
+        fillSymmetricRow(12, 2, midKey);
+        for (let x = center - 2; x <= center + 2; x += 1) {
+          setPixel(x, 12, accentKey);
+        }
+        fillSymmetricRow(13, 2, midKey);
+
+        for (let y = 14; y <= 17; y += 1) {
+          setPixel(center - 1, y, midKey);
+          setPixel(center + 1, y, midKey);
+          setPixel(center - 2, y, darkKey);
+          setPixel(center + 2, y, darkKey);
+        }
+        for (let x = center - 2; x <= center + 2; x += 1) {
+          setPixel(x, 18, darkKey);
+        }
+        setPixel(center - 1, 18, accentKey);
+        setPixel(center + 1, 18, accentKey);
+
+        for (let y = 8; y <= 14; y += 1) {
+          setPixel(center - 5, y, warmKey);
+          if (y >= 9 && y <= 13) {
+            setPixel(center - 6, y, warmKey);
+          }
+        }
+        setPixel(center - 5, 10, lightKey);
+        setPixel(center - 6, 11, accentKey);
+
+        for (let y = 5; y <= 16; y += 1) {
+          setPixel(center + 4, y, lightKey);
+        }
+        setPixel(center + 4, 4, accentKey);
+        setPixel(center + 4, 17, accentKey);
+        setPixel(center + 3, 10, lightKey);
+
+        for (let y = 7; y <= 15; y += 1) {
+          setPixel(center - 3, y, darkKey);
+          setPixel(center + 3, y, darkKey);
+        }
+
+        const detailText = [silhouette, composition, ...(layering || []), ...(keyClusters || []), ...(focalPixels || [])]
+          .join(' ')
+          .toLowerCase();
+        if (detailText.includes('visor')) {
+          setPixel(center, 5, accentKey);
+          setPixel(center - 1, 5, lightKey);
+          setPixel(center + 1, 5, lightKey);
+        }
+        if (detailText.includes('shield')) {
+          setPixel(center - 6, 10, accentKey);
+          setPixel(center - 5, 12, lightKey);
+        }
+        if (detailText.includes('sword') || detailText.includes('blade')) {
+          setPixel(center + 4, 3, lightKey);
+          setPixel(center + 4, 2, accentKey);
+        }
+
+        const data = grid.map((row) => row.join(''));
+        return { size, palette, data };
+      }
+
       async function generateText(prompt, maxTokens, stepLabel, overrides = {}) {
         appendMessage('user', `${stepLabel} – Request`, prompt);
         console.info(
@@ -1196,13 +1386,38 @@
           'Use only the supplied palette keys, keep each string length 24, and do not add text outside the JSON.'
         ].join('\n');
         const step5Raw = await generateText(step5Prompt, 420, 'Step 5');
-        const step5 = extractJSON(step5Raw);
-        const template = {
-          size: Number(step5.size) || 24,
-          palette: step5.palette || paletteMap,
-          data: Array.isArray(step5.data) ? step5.data : [],
-        };
+        let templatePlan;
+        try {
+          const parsedStep5 = extractJSON(step5Raw);
+          templatePlan = validateStep5Template(parsedStep5, paletteMap);
+        } catch (error) {
+          templatePlan = { valid: false, reason: error?.message || 'Could not parse JSON from Step 5.' };
+        }
+        if (!templatePlan?.valid) {
+          appendMessage(
+            'assistant',
+            'Step 5 – Validator',
+            `${templatePlan?.reason || 'Template validation failed.'} Using a procedural fallback to complete the pixel grid.`,
+          );
+          const fallbackTemplate = buildProceduralTemplate({
+            paletteMap,
+            accentColor: accent,
+            supportColors,
+            silhouette,
+            composition,
+            layering,
+            keyClusters,
+            focalPixels,
+          });
+          templatePlan = { valid: true, template: fallbackTemplate, fallback: true };
+        }
+        const template = templatePlan.template;
         drawTemplate(template);
+        appendMessage(
+          'assistant',
+          templatePlan.fallback ? 'Step 5 – Fallback Template' : 'Step 5 – Template',
+          JSON.stringify(template, null, 2),
+        );
         appendMessage('assistant', 'Complete', 'The pixel-art template has been generated and rendered on the canvas.');
         setStatus('All steps completed!');
       }
