@@ -169,47 +169,20 @@
       const MODEL_CHOICES = {
         webgpu: [
           {
-            id: 'onnx-community/TinyLlama-1.1B-Chat-v1.0',
-            label: 'TinyLlama 1.1B Chat (q4)',
+            id: 'google/gemma-3n-E4B-it-litert-lm',
+            label: 'Gemma 3N E4B Instruct (LiteRT)',
             device: 'webgpu',
-            dtype: 'q4',
+            dtype: 'auto',
             context: '≈2K token context window',
             promptLimit: MAX_GPU_PROMPT_CHARS,
-            fallbackNotice: 'Falling back to a lighter model when GPU memory is limited.',
-          },
-          {
-            id: 'onnx-community/Phi-2-q4f16',
-            label: 'Phi-2 2.7B (q4f16)',
-            device: 'webgpu',
-            dtype: 'q4',
-            context: '≈2K token context window',
-            promptLimit: 1000,
-            fallbackNotice: 'Switching to a 150M decoder if the Phi-2 build cannot be loaded.',
-          },
-          {
-            id: 'onnx-community/ettin-decoder-150m-ONNX',
-            label: 'Ettin Decoder 150M (q4)',
-            device: 'webgpu',
-            dtype: 'q4',
-            context: '≈1K token context window',
-            promptLimit: 850,
           },
         ],
         wasm: [
           {
-            id: 'onnx-community/Phi-2-q4f16',
-            label: 'Phi-2 2.7B (q4f16)',
+            id: 'google/gemma-3n-E4B-it-litert-lm',
+            label: 'Gemma 3N E4B Instruct (LiteRT)',
             device: 'wasm',
-            dtype: 'q4',
-            context: '≈2K token context window',
-            promptLimit: 900,
-            fallbackNotice: 'Falling back to the 150M Ettin build if memory is insufficient.',
-          },
-          {
-            id: 'onnx-community/ettin-decoder-150m-ONNX',
-            label: 'Ettin Decoder 150M (q8)',
-            device: 'wasm',
-            dtype: 'q8',
+            dtype: 'auto',
             context: '≈1K token context window',
             promptLimit: MAX_CPU_PROMPT_CHARS,
           },
@@ -994,8 +967,8 @@
 
       clearCanvas(24);
       const hardwareMessage = navigator.gpu
-        ? 'WebGPU detected. The app will try the upgraded TinyLlama 1.1B Chat (q4) model first for a longer context window.'
-        : 'WebGPU unavailable. The app will use the compact Ettin 150M model via WASM for broad compatibility.';
+        ? 'WebGPU detected. The app will load google/gemma-3n-E4B-it-litert-lm for the best available experience.'
+        : 'WebGPU unavailable. The app will still load google/gemma-3n-E4B-it-litert-lm via WASM—expect slower responses.';
       appendMessage(
         'assistant',
         'System',

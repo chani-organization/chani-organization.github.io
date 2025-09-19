@@ -4,8 +4,7 @@
 
 ## 모델 및 하드웨어 대응
 
-- WebGPU가 감지되면 `onnx-community/TinyLlama-1.1B-Chat-v1.0`(q4) 모델을 우선 시도해 더 긴(약 2K 토큰) 컨텍스트를 제공합니다.
-- WebGPU 로딩에 실패하거나 GPU가 없으면 `onnx-community/Phi-2-q4f16` 모델(q4)을 먼저 시도해 더 높은 용량의 답변을 확보하고, 필요 시 `onnx-community/ettin-decoder-150m-ONNX` 모델(q4/q8)로 자동 폴백해 GTX 1050급 환경에서도 동작하도록 구성되어 있습니다.
+- GPU 지원 여부와 관계없이 `google/gemma-3n-E4B-it-litert-lm` 모델을 단일 옵션으로 로드합니다. WebGPU가 감지되면 GPU 가속으로, 그렇지 않으면 WASM 경로로 구동하며 모델 자체는 동일합니다.
 - 프롬프트 길이는 기본적으로 700~1100자 사이로 제한하며, 초과 시 분할 입력을 안내합니다.
 
 ## 파일 구성
