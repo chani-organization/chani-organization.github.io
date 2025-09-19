@@ -175,7 +175,16 @@
             dtype: 'q4',
             context: '≈2K token context window',
             promptLimit: MAX_GPU_PROMPT_CHARS,
-            fallbackNotice: 'Falling back to a lighter 150M model to keep memory use low.',
+            fallbackNotice: 'Falling back to a lighter model when GPU memory is limited.',
+          },
+          {
+            id: 'onnx-community/Phi-2-q4f16',
+            label: 'Phi-2 2.7B (q4f16)',
+            device: 'webgpu',
+            dtype: 'q4',
+            context: '≈2K token context window',
+            promptLimit: 1000,
+            fallbackNotice: 'Switching to a 150M decoder if the Phi-2 build cannot be loaded.',
           },
           {
             id: 'onnx-community/ettin-decoder-150m-ONNX',
@@ -187,6 +196,15 @@
           },
         ],
         wasm: [
+          {
+            id: 'onnx-community/Phi-2-q4f16',
+            label: 'Phi-2 2.7B (q4f16)',
+            device: 'wasm',
+            dtype: 'q4',
+            context: '≈2K token context window',
+            promptLimit: 900,
+            fallbackNotice: 'Falling back to the 150M Ettin build if memory is insufficient.',
+          },
           {
             id: 'onnx-community/ettin-decoder-150m-ONNX',
             label: 'Ettin Decoder 150M (q8)',
