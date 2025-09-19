@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>대화형 픽셀 아트 실험실</title>
+    <title>Interactive Pixel Art Lab</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
       :root {
@@ -129,14 +129,14 @@
   <body>
     <div id="app">
       <header>
-        <h1>대화형 픽셀 아트 실험실</h1>
-        <p>프롬프트를 입력하고 생성 버튼을 누르면 LLM과 5단계 대화를 거쳐 픽셀 아트가 완성됩니다.</p>
+        <h1>Interactive Pixel Art Lab</h1>
+        <p>Enter a prompt and the LLM will run an English, five-step dialogue to craft a pixel-art template.</p>
       </header>
       <div class="controls">
-        <input id="prompt" type="text" placeholder="예: 은빛 갑옷을 입은 용사" />
-        <button id="generate">생성</button>
+        <input id="prompt" type="text" placeholder="e.g. Silver-armored knight" />
+        <button id="generate">Generate</button>
       </div>
-      <div id="status">LLM과 다섯 번 이상 대화하여 주제를 해석합니다.</div>
+      <div id="status">Preparing a five-step English dialogue with the LLM.</div>
       <div class="output">
         <canvas id="canvas" width="24" height="24"></canvas>
         <div id="log"></div>
@@ -195,7 +195,7 @@
 
       async function ensureLLM() {
         if (llm) return;
-        setStatus('모델을 불러오는 중입니다...');
+        setStatus('Loading the model...');
         hf = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.0');
         hf.env.allowRemoteModels = true;
         const device = navigator.gpu ? 'webgpu' : 'wasm';
@@ -205,17 +205,17 @@
           dtype,
           progress_callback: (progress) => {
             if (progress?.status && progress?.progress != null) {
-              setStatus(`모델 로딩 ${Math.round(progress.progress * 100)}%`);
+              setStatus(`Model loading ${Math.round(progress.progress * 100)}%`);
             }
           },
         });
-        setStatus('모델 준비 완료. 1단계 대화를 시작합니다.');
+        setStatus('Model ready. Starting Step 1 dialogue.');
       }
 
       function extractJSON(text) {
         const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
         const body = fenced ? fenced[1] : (text.match(/\{[\s\S]*\}/) || [])[0];
-        if (!body) throw new Error('JSON 응답을 찾지 못했습니다.');
+        if (!body) throw new Error('Could not locate JSON in the response.');
         return JSON.parse(body);
       }
 
@@ -247,14 +247,14 @@
       }
 
       async function generateText(prompt, maxTokens, stepLabel) {
-        appendMessage('user', stepLabel, prompt);
+        appendMessage('user', `${stepLabel} – Request`, prompt);
         const out = await llm(prompt, {
           max_new_tokens: maxTokens,
           do_sample: false,
           return_full_text: false,
         });
         const raw = String(out?.[0]?.generated_text || '').trim();
-        appendMessage('assistant', `${stepLabel} 응답`, raw);
+        appendMessage('assistant', `${stepLabel} – Response`, raw);
         return raw;
       }
 
@@ -280,50 +280,50 @@
 
         const target = 24;
         clearCanvas(target);
-        appendMessage('user', '사용자 프롬프트', userPrompt);
+        appendMessage('user', 'User Prompt', userPrompt);
 
-        setStatus('1/5 주제 분석 중...');
+        setStatus('Step 1/5 – Analyzing the subject...');
         const step1Prompt = [
-          '당신은 PixelScholar 단계 1입니다.',
-          `사용자 프롬프트: "${userPrompt}"`,
-          '주제의 문자적 의미를 해석하여 픽셀 아트에 반영할 고유한 특징을 찾으세요.',
-          '반드시 JSON만 반환하고, 형식은 {"subject": string, "traits": [string...], "symbolism": [string...], "notes": string} 입니다.',
-          'traits는 최소 3개, symbolism은 최소 2개를 제시하세요.',
-          '주관적 감상은 제외하고, 명확한 물리적 특징과 상징을 담아주세요.'
+          'You are PixelScholar, Step 1.',
+          `User prompt: "${userPrompt}"`,
+          'Interpret the literal meaning of the subject and identify distinctive features for pixel art.',
+          'Respond with JSON only in the form {"subject": string, "traits": [string...], "symbolism": [string...], "notes": string}.',
+          'List at least three concrete traits and at least two symbolism cues.',
+          'Exclude subjective impressions and focus on physical details and emblematic elements.'
         ].join('\n');
-        const step1Raw = await generateText(step1Prompt, 220, '1단계 요청');
+        const step1Raw = await generateText(step1Prompt, 220, 'Step 1');
         const step1 = extractJSON(step1Raw);
         const subject = String(step1.subject || userPrompt).trim();
         const traits = normalizeList(step1.traits).slice(0, 5);
         const symbolism = normalizeList(step1.symbolism).slice(0, 5);
 
-        setStatus('2/5 시각 모티프 구성 중...');
+        setStatus('Step 2/5 – Designing visual motifs...');
         const step2Prompt = [
-          '당신은 PixelScholar 단계 2입니다.',
-          `주제: ${subject}`,
-          `핵심 특징: ${traits.join(', ') || '없음'}`,
-          `상징 요소: ${symbolism.join(', ') || '없음'}`,
-          '픽셀 아트에서 형상화할 주요 모티프를 설계하세요.',
-          'JSON만 반환하며 {"motifs": [string...], "featurePriority": [string...], "silhouette": string} 형식을 지키세요.',
-          'motifs는 3~4개의 짧은 구로 작성하고, featurePriority에는 반드시 두드러져야 하는 디테일을 3개 이상 나열하세요.'
+          'You are PixelScholar, Step 2.',
+          `Subject: ${subject}`,
+          `Core traits: ${traits.join(', ') || 'None'}`,
+          `Symbolism: ${symbolism.join(', ') || 'None'}`,
+          'Design the main motifs that should appear in the pixel art.',
+          'Respond with JSON only in the form {"motifs": [string...], "featurePriority": [string...], "silhouette": string}.',
+          'Write three to four concise motif ideas and list at least three standout details in featurePriority.'
         ].join('\n');
-        const step2Raw = await generateText(step2Prompt, 220, '2단계 요청');
+        const step2Raw = await generateText(step2Prompt, 220, 'Step 2');
         const step2 = extractJSON(step2Raw);
         const motifs = normalizeList(step2.motifs).slice(0, 5);
         const featurePriority = normalizeList(step2.featurePriority).slice(0, 5);
         const silhouette = String(step2.silhouette || '').trim();
 
-        setStatus('3/5 색상 팔레트 설계 중...');
+        setStatus('Step 3/5 – Building the color palette...');
         const step3Prompt = [
-          '당신은 PixelScholar 단계 3입니다.',
-          `주제: ${subject}`,
-          `모티프: ${motifs.join(', ') || '없음'}`,
-          `우선 특징: ${featurePriority.join(', ') || '없음'}`,
-          '픽셀 아트용 색상 팔레트를 제안하세요. 모두 #RRGGBB 16진수 색상으로 작성하세요.',
-          'JSON만 반환하며 {"palette": ["#RRGGBB"...], "accent": "#RRGGBB", "support": ["#RRGGBB"...], "notes": string} 형식을 따르세요.',
-          'palette에는 주조색 3~5개를, accent는 강조색 1개를, support는 보조색 1~3개를 넣으세요. 모든 색상은 중복되지 않게 작성하세요.'
+          'You are PixelScholar, Step 3.',
+          `Subject: ${subject}`,
+          `Motifs: ${motifs.join(', ') || 'None'}`,
+          `Priority features: ${featurePriority.join(', ') || 'None'}`,
+          'Propose a pixel-art color palette using #RRGGBB hex colors.',
+          'Respond with JSON only in the form {"palette": ["#RRGGBB"...], "accent": "#RRGGBB", "support": ["#RRGGBB"...], "notes": string}.',
+          'Provide three to five base colors in palette, exactly one accent color, and one to three support colors with no duplicates.'
         ].join('\n');
-        const step3Raw = await generateText(step3Prompt, 220, '3단계 요청');
+        const step3Raw = await generateText(step3Prompt, 220, 'Step 3');
         const step3 = extractJSON(step3Raw);
         const paletteColors = uniqueColors([step3.palette, step3.accent, step3.support]);
         let colors = paletteColors.slice(0, 6);
@@ -332,26 +332,26 @@
         }
         const accent = (uniqueColors([step3.accent])[0] || colors[1] || colors[0]).toUpperCase();
 
-        setStatus('4/5 레이아웃 구상 중...');
+        setStatus('Step 4/5 – Mapping the composition...');
         const step4Prompt = [
-          '당신은 PixelScholar 단계 4입니다.',
-          `주제: ${subject}`,
-          `모티프: ${motifs.join(', ') || '없음'}`,
-          `강조해야 할 디테일: ${featurePriority.join(', ') || '없음'}`,
-          `사용할 색상: ${colors.join(', ')}`,
-          `강조색: ${accent}`,
-          '24x24 픽셀 캔버스에 배치할 구체적인 구성을 설명하세요.',
-          'JSON만 반환하며 {"composition": string, "layering": [string...], "keyClusters": [string...], "focalPixels": [string...]}를 지키세요.',
-          'layering에는 앞/뒤 순서를 설명하고, keyClusters에는 묶어 배치할 요소를, focalPixels에는 강조해야 할 지점 설명을 넣으세요.'
+          'You are PixelScholar, Step 4.',
+          `Subject: ${subject}`,
+          `Motifs: ${motifs.join(', ') || 'None'}`,
+          `Priority details: ${featurePriority.join(', ') || 'None'}`,
+          `Palette colors: ${colors.join(', ')}`,
+          `Accent color: ${accent}`,
+          'Describe the concrete composition for a 24x24 pixel canvas.',
+          'Respond with JSON only in the form {"composition": string, "layering": [string...], "keyClusters": [string...], "focalPixels": [string...]}.',
+          'Clarify foreground/background order in layering, group related elements in keyClusters, and highlight focal points in focalPixels.'
         ].join('\n');
-        const step4Raw = await generateText(step4Prompt, 240, '4단계 요청');
+        const step4Raw = await generateText(step4Prompt, 240, 'Step 4');
         const step4 = extractJSON(step4Raw);
         const composition = String(step4.composition || '').trim();
         const layering = normalizeList(step4.layering).slice(0, 5);
         const keyClusters = normalizeList(step4.keyClusters).slice(0, 5);
         const focalPixels = normalizeList(step4.focalPixels).slice(0, 5);
 
-        setStatus('5/5 픽셀 템플릿 생성 중...');
+        setStatus('Step 5/5 – Generating the pixel template...');
         const paletteMap = {};
         colors.forEach((color, index) => {
           const key = String(index + 1);
@@ -359,25 +359,25 @@
         });
         const paletteDescription = JSON.stringify(paletteMap, null, 2);
         const step5Prompt = [
-          '당신은 PixelScholar 단계 5입니다.',
-          '이전 단계의 정보를 모두 반영하여 픽셀 아트 템플릿을 만드세요.',
-          `주제: ${subject}`,
-          `핵심 특징: ${traits.join(', ') || '없음'}`,
-          `모티프: ${motifs.join(', ') || '없음'}`,
-          `실루엣 요약: ${silhouette || '선명한 주제 실루엣을 유지'}`,
-          `레이아웃 가이드: ${composition || '전경을 중심에 배치'}`,
-          `레이어 순서: ${layering.join(' -> ') || '단일 레이어'}`,
-          `중요 군집: ${keyClusters.join(', ') || '주제 주변에 집중'}`,
-          `포커스 포인트: ${focalPixels.join(', ') || '주제 중심부 강조'}`,
-          `사용 가능한 색상 팔레트 (키:색상): ${paletteDescription}`,
-          `강조색은 ${accent} 입니다. 팔레트에서 해당 색상을 활용하여 핵심 특징을 강조하세요.`,
-          '24x24 크기에서 0은 투명/배경, 나머지는 팔레트의 키만 사용하세요.',
-          '총 픽셀 커버리지는 25% 이상 50% 이하로 유지하고, 주제의 상징적 특징이 명확히 드러나도록 연결된 색상 블록을 만드세요.',
-          'JSON만 반환하며 정확히 {"size":24,"palette":{...},"data":[24개의 문자열]} 형식을 따르세요.',
-          'data 문자열은 각각 24자 길이여야 하며, "0" 또는 팔레트 키만 포함하세요.',
-          '팔레트 키는 반드시 제공된 paletteMap의 키만 사용하고 새로운 색상을 추가하지 마세요.'
+          'You are PixelScholar, Step 5.',
+          'Using every detail from the previous steps, create a pixel-art template.',
+          `Subject: ${subject}`,
+          `Core traits: ${traits.join(', ') || 'None'}`,
+          `Motifs: ${motifs.join(', ') || 'None'}`,
+          `Silhouette summary: ${silhouette || 'Keep a clear subject silhouette'}`,
+          `Layout guide: ${composition || 'Place the subject near the center foreground'}`,
+          `Layer order: ${layering.join(' -> ') || 'Single layer'}`,
+          `Key clusters: ${keyClusters.join(', ') || 'Focus clusters around the subject'}`,
+          `Focal points: ${focalPixels.join(', ') || 'Emphasize the subject core'}`,
+          `Available palette (key:color): ${paletteDescription}`,
+          `Use ${accent} as the highlight color to emphasize the priority details.`,
+          'Work in a 24x24 grid where 0 is transparent/background and other characters reference palette keys only.',
+          'Keep total coverage between 25% and 50%, forming cohesive blocks that express the symbolic traits.',
+          'Return JSON only in the exact form {"size":24,"palette":{...},"data":[24 strings]}.',
+          'Each string in data must be length 24 and may contain "0" or palette keys only.',
+          'Use only the provided palette keys and do not invent new colors.'
         ].join('\n');
-        const step5Raw = await generateText(step5Prompt, 420, '5단계 요청');
+        const step5Raw = await generateText(step5Prompt, 420, 'Step 5');
         const step5 = extractJSON(step5Raw);
         const template = {
           size: Number(step5.size) || 24,
@@ -385,8 +385,8 @@
           data: Array.isArray(step5.data) ? step5.data : [],
         };
         drawTemplate(template);
-        appendMessage('assistant', '완료', '픽셀 아트 템플릿이 생성되어 캔버스에 반영되었습니다.');
-        setStatus('모든 단계를 완료했습니다!');
+        appendMessage('assistant', 'Complete', 'The pixel-art template has been generated and rendered on the canvas.');
+        setStatus('All steps completed!');
       }
 
       async function handleGenerate() {
@@ -394,13 +394,13 @@
         if (!text) return;
         logEl.innerHTML = '';
         generateBtn.disabled = true;
-        setStatus('LLM 대화를 준비합니다...');
+        setStatus('Preparing the LLM for a five-step dialogue...');
         try {
           await runFiveStepDialogue(text);
         } catch (error) {
           console.error(error);
-          appendError('오류', error?.message || '픽셀 아트를 생성하지 못했습니다. 다시 시도해 주세요.');
-          setStatus('오류가 발생했습니다. 프롬프트를 조정해 다시 시도해 주세요.');
+          appendError('Error', error?.message || 'We could not generate pixel art. Please try again.');
+          setStatus('An error occurred. Adjust the prompt and try again.');
         } finally {
           generateBtn.disabled = false;
         }
@@ -415,7 +415,7 @@
       });
 
       clearCanvas(24);
-      appendMessage('assistant', '안내', '프롬프트를 입력한 뒤 생성 버튼을 누르면 LLM과 다섯 단계의 대화를 거쳐 픽셀 아트가 만들어집니다.');
+      appendMessage('assistant', 'Guide', 'Enter a prompt and press Generate to launch a five-step English dialogue that produces a pixel-art template.');
       promptInput.focus();
     </script>
   </body>
