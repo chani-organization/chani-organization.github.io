@@ -764,6 +764,207 @@
         return buildHeuristicSummary(userPrompt);
       }
 
+      function buildStep2Prompt(subject, traits, symbolism, notes, { retry = false } = {}) {
+        const base = [
+          'PixelScholar Step 2.',
+          `Subject: ${subject}`,
+          `Traits: ${traits.join(', ') || 'None'}`,
+          `Symbolism: ${symbolism.join(', ') || 'None'}`,
+          `Notes: ${notes || 'None'}`,
+          'Plan the main visuals to paint.',
+          'Return JSON only. Format: {"motifs":[""],"featurePriority":[""],"silhouette":""}.',
+          'Fill the template with real words and remove blank items.',
+          'motifs = three or four short noun phrases.',
+          'featurePriority = at least three concrete elements to emphasize.',
+        ];
+        if (retry) {
+          base.push(
+            'Respond with JSON only. Example: {"motifs":["armor crest","cape fold","ground shadow"],"featurePriority":["glinting visor","plate highlights","weapon silhouette"],"silhouette":"heroic"}.',
+            'Do not include explanations or extra labels.',
+          );
+        }
+        return base.join('\n');
+      }
+
+      function validateStep2Plan(data) {
+        const motifs = cleanListEntries(data?.motifs, 4, 60);
+        const featurePriority = cleanListEntries(data?.featurePriority, 6, 60);
+        const silhouette = cleanSingleLine(data?.silhouette, 40);
+        if (motifs.length < 3) {
+          return { valid: false, reason: 'Motifs must include at least three short noun phrases.' };
+        }
+        if (featurePriority.length < 3) {
+          return { valid: false, reason: 'featurePriority needs three or more concrete elements.' };
+        }
+        if (!silhouette) {
+          return { valid: false, reason: 'Silhouette must be a short descriptive word or phrase.' };
+        }
+        return { valid: true, motifs, featurePriority, silhouette };
+      }
+
+      function buildStep2Fallback(subject, traits, symbolism) {
+        const subjectLine = cleanSingleLine(subject, 50) || 'focal figure';
+        const seeds = [
+          subjectLine,
+          ...traits.map((item) => cleanSingleLine(item, 50)),
+          ...symbolism.map((item) => cleanSingleLine(item, 50)),
+        ].filter(Boolean);
+        const motifFallbacks = [
+          `${subjectLine} stance`,
+          `${subjectLine} crest`,
+          'background banner',
+          'ground shadow',
+        ];
+        const motifs = ensureMinimumList(seeds, 3, motifFallbacks).slice(0, 4);
+        const featureFallbacks = [
+          'armor plate highlights',
+          'visor glow',
+          'weapon edge',
+          'cloak contour',
+        ];
+        const featurePriority = ensureMinimumList(
+          traits.map((item) => cleanSingleLine(item, 60)),
+          3,
+          [...symbolism.map((item) => cleanSingleLine(item, 60)), ...featureFallbacks],
+        ).slice(0, 5);
+        const silhouetteTokens = subjectLine.split(/\s+/).filter(Boolean);
+        const silhouette = cleanSingleLine(silhouetteTokens[silhouetteTokens.length - 1] || subjectLine, 20) || 'heroic';
+        return { valid: true, motifs, featurePriority, silhouette };
+      }
+
+      function buildStep3Prompt(subject, motifs, featurePriority, { retry = false } = {}) {
+        const lines = [
+          'PixelScholar Step 3.',
+          `Subject: ${subject}`,
+          `Motifs: ${motifs.join(', ') || 'None'}`,
+          `Priority features: ${featurePriority.join(', ') || 'None'}`,
+          'Build a #RRGGBB palette for the scene.',
+          'Return JSON only. Format: {"palette":["#RRGGBB"],"accent":"#RRGGBB","support":["#RRGGBB"],"notes":""}.',
+          'Fill the template with real colors and notes.',
+          'palette = three to five unique base colors (uppercase hex).',
+          'accent = one highlight color. support = one to three extra colors without duplicates.',
+        ];
+        if (retry) {
+          lines.push(
+            'Reply with JSON only and ensure every color is a valid #RRGGBB hex.',
+            'Do not add prose or field descriptions.',
+          );
+        }
+        return lines.join('\n');
+      }
+
+      function validateStep3Palette(data) {
+        const palette = uniqueColors([data?.palette]).slice(0, 5);
+        const accentList = uniqueColors([data?.accent]);
+        const support = uniqueColors([data?.support]).slice(0, 3);
+        const accent = accentList[0];
+        if (palette.length < 3) {
+          return { valid: false, reason: 'Palette must supply three to five base colors.' };
+        }
+        if (!accent) {
+          return { valid: false, reason: 'Accent color missing or invalid.' };
+        }
+        const notes = cleanSingleLine(data?.notes, 120);
+        return { valid: true, palette, accent, support, notes };
+      }
+
+      function buildStep3Fallback(subject) {
+        const subjectTokens = String(subject || '')
+          .toLowerCase()
+          .split(/[^a-z0-9]+/)
+          .filter(Boolean);
+        let palette = ['#1E293B', '#475569', '#CBD5F5'];
+        let accent = '#FACC15';
+        let support = ['#F97316'];
+        if (subjectTokens.includes('forest') || subjectTokens.includes('nature')) {
+          palette = ['#0F172A', '#14532D', '#22C55E'];
+          accent = '#FACC15';
+          support = ['#38BDF8'];
+        } else if (subjectTokens.includes('fire') || subjectTokens.includes('ember')) {
+          palette = ['#1F2937', '#7C2D12', '#EA580C'];
+          accent = '#FACC15';
+          support = ['#F97316'];
+        } else if (subjectTokens.includes('silver') || subjectTokens.includes('steel')) {
+          palette = ['#111827', '#334155', '#94A3B8', '#E2E8F0'];
+          accent = '#FACC15';
+          support = ['#F97316'];
+        }
+        return { valid: true, palette, accent, support, notes: 'Reserve the accent for the brightest armor glints.' };
+      }
+
+      function buildStep4Prompt(subject, motifs, featurePriority, colors, accent, { retry = false } = {}) {
+        const lines = [
+          'PixelScholar Step 4.',
+          `Subject: ${subject}`,
+          `Motifs: ${motifs.join(', ') || 'None'}`,
+          `Priority details: ${featurePriority.join(', ') || 'None'}`,
+          `Palette colors: ${colors.join(', ')}`,
+          `Accent color: ${accent}`,
+          'Explain the 24x24 layout.',
+          'Return JSON only. Format: {"composition":"","layering":[""],"keyClusters":[""],"focalPixels":[""]}.',
+          'Write short factual text, no blank items, no extra commentary.',
+          'layering = front to back order. keyClusters = grouped zones. focalPixels = short tips for the brightest spots.',
+        ];
+        if (retry) {
+          lines.push('Respond with JSON only and keep every value concise and concrete.');
+        }
+        return lines.join('\n');
+      }
+
+      function validateStep4Layout(data) {
+        const composition = cleanSingleLine(data?.composition, 160);
+        const layering = cleanListEntries(data?.layering, 5, 70);
+        const keyClusters = cleanListEntries(data?.keyClusters, 5, 70);
+        const focalPixels = cleanListEntries(data?.focalPixels, 5, 70);
+        if (!composition) {
+          return { valid: false, reason: 'Composition field is missing or non-descriptive.' };
+        }
+        if (!layering.length) {
+          return { valid: false, reason: 'Layering must include at least one ordered layer.' };
+        }
+        if (!keyClusters.length) {
+          return { valid: false, reason: 'Key clusters list is empty.' };
+        }
+        if (!focalPixels.length) {
+          return { valid: false, reason: 'Focal pixels need specific highlight notes.' };
+        }
+        return { valid: true, composition, layering, keyClusters, focalPixels };
+      }
+
+      function buildStep4Fallback(subject, motifs, featurePriority) {
+        const subjectLine = cleanSingleLine(subject, 80) || 'focal figure';
+        const motif = motifs[0] || subjectLine;
+        const composition = `Center the ${subjectLine} occupying middle columns with a dynamic guard pose.`;
+        const layering = ensureMinimumList(
+          [
+            'background gradient',
+            `${motif} mass`,
+            'foreground highlights',
+          ],
+          2,
+          featurePriority,
+        ).slice(0, 4);
+        const keyClusters = ensureMinimumList(
+          [
+            'visor and torso core',
+            'weapon edge zone',
+            'ground shadow base',
+          ],
+          3,
+          motifs,
+        ).slice(0, 4);
+        const focalPixels = ensureMinimumList(
+          [
+            'spark on visor center',
+            'edge along sword tip',
+            'crest highlight on shield',
+          ],
+          2,
+          featurePriority,
+        ).slice(0, 4);
+        return { valid: true, composition, layering, keyClusters, focalPixels };
+      }
+
       function uniqueColors(values) {
         const set = new Set();
         for (const value of values) {
@@ -850,64 +1051,124 @@
         const { subject, traits, symbolism, notes } = summary;
 
         setStatus('Step 2/5 – Designing visual motifs...');
-        const step2Prompt = [
-          'PixelScholar Step 2.',
-          `Subject: ${subject}`,
-          `Traits: ${traits.join(', ') || 'None'}`,
-          `Symbolism: ${symbolism.join(', ') || 'None'}`,
-          `Notes: ${notes || 'None'}`,
-          'Plan the main visuals to paint.',
-          'Return JSON only. Format: {"motifs":[""],"featurePriority":[""],"silhouette":""}.',
-          'Fill the template with real words and remove blank items.',
-          'motifs = three or four short noun phrases.',
-          'featurePriority = at least three concrete elements to emphasize.'
-        ].join('\n');
+        const step2Prompt = buildStep2Prompt(subject, traits, symbolism, notes);
         const step2Raw = await generateText(step2Prompt, 220, 'Step 2');
-        const step2 = extractJSON(step2Raw);
-        const motifs = normalizeList(step2.motifs).slice(0, 5);
-        const featurePriority = normalizeList(step2.featurePriority).slice(0, 5);
-        const silhouette = String(step2.silhouette || '').trim();
+        let plan2;
+        try {
+          plan2 = validateStep2Plan(extractJSON(step2Raw));
+        } catch (error) {
+          plan2 = { valid: false, reason: error?.message || 'Could not parse JSON from Step 2.' };
+        }
+        if (!plan2.valid) {
+          appendMessage(
+            'assistant',
+            'Step 2 – Validator',
+            `${plan2.reason} Retrying with explicit JSON instructions.`,
+          );
+          const step2RetryRaw = await generateText(
+            buildStep2Prompt(subject, traits, symbolism, notes, { retry: true }),
+            200,
+            'Step 2 Retry',
+          );
+          try {
+            plan2 = validateStep2Plan(extractJSON(step2RetryRaw));
+          } catch (error) {
+            plan2 = { valid: false, reason: error?.message || 'Could not parse JSON from Step 2 retry.' };
+          }
+          if (!plan2.valid) {
+            appendMessage(
+              'assistant',
+              'Step 2 – Validator',
+              'Falling back to heuristic motif planning.',
+            );
+            plan2 = buildStep2Fallback(subject, traits, symbolism);
+          }
+        }
+        const { motifs, featurePriority, silhouette } = plan2;
 
         setStatus('Step 3/5 – Building the color palette...');
-        const step3Prompt = [
-          'PixelScholar Step 3.',
-          `Subject: ${subject}`,
-          `Motifs: ${motifs.join(', ') || 'None'}`,
-          `Priority features: ${featurePriority.join(', ') || 'None'}`,
-          'Build a #RRGGBB palette for the scene.',
-          'Return JSON only. Format: {"palette":["#RRGGBB"],"accent":"#RRGGBB","support":["#RRGGBB"],"notes":""}.',
-          'Fill the template with real colors and notes.',
-          'palette = three to five unique base colors (uppercase hex).',
-          'accent = one highlight color. support = one to three extra colors without duplicates.'
-        ].join('\n');
+        const step3Prompt = buildStep3Prompt(subject, motifs, featurePriority);
         const step3Raw = await generateText(step3Prompt, 220, 'Step 3');
-        const step3 = extractJSON(step3Raw);
-        const paletteColors = uniqueColors([step3.palette, step3.accent, step3.support]);
-        let colors = paletteColors.slice(0, 6);
-        if (colors.length < 3) {
-          colors = ['#1E293B', '#F97316', '#FACC15', '#22C55E'];
+        let plan3;
+        try {
+          plan3 = validateStep3Palette(extractJSON(step3Raw));
+        } catch (error) {
+          plan3 = { valid: false, reason: error?.message || 'Could not parse JSON from Step 3.' };
         }
-        const accent = (uniqueColors([step3.accent])[0] || colors[1] || colors[0]).toUpperCase();
+        if (!plan3.valid) {
+          appendMessage(
+            'assistant',
+            'Step 3 – Validator',
+            `${plan3.reason} Retrying with strict color instructions.`,
+          );
+          const step3RetryRaw = await generateText(
+            buildStep3Prompt(subject, motifs, featurePriority, { retry: true }),
+            200,
+            'Step 3 Retry',
+          );
+          try {
+            plan3 = validateStep3Palette(extractJSON(step3RetryRaw));
+          } catch (error) {
+            plan3 = { valid: false, reason: error?.message || 'Could not parse JSON from Step 3 retry.' };
+          }
+          if (!plan3.valid) {
+            appendMessage(
+              'assistant',
+              'Step 3 – Validator',
+              'Falling back to a predefined palette suited to the subject.',
+            );
+            plan3 = buildStep3Fallback(subject);
+          }
+        }
+        let { palette: colors, accent, support: supportColors } = plan3;
+        colors = colors.slice(0, 6);
+        if (!colors.includes(accent)) {
+          colors = [...colors, accent].slice(0, 6);
+        }
+        if (supportColors?.length) {
+          for (const color of supportColors) {
+            if (!colors.includes(color)) {
+              colors.push(color);
+            }
+          }
+        }
+        colors = Array.from(new Set(colors)).slice(0, 6);
 
         setStatus('Step 4/5 – Mapping the composition...');
-        const step4Prompt = [
-          'PixelScholar Step 4.',
-          `Subject: ${subject}`,
-          `Motifs: ${motifs.join(', ') || 'None'}`,
-          `Priority details: ${featurePriority.join(', ') || 'None'}`,
-          `Palette colors: ${colors.join(', ')}`,
-          `Accent color: ${accent}`,
-          'Explain the 24x24 layout.',
-          'Return JSON only. Format: {"composition":"","layering":[""],"keyClusters":[""],"focalPixels":[""]}.',
-          'Write short factual text, no blank items, no extra commentary.',
-          'layering = front to back order. keyClusters = grouped zones. focalPixels = short tips for the brightest spots.'
-        ].join('\n');
+        const step4Prompt = buildStep4Prompt(subject, motifs, featurePriority, colors, accent);
         const step4Raw = await generateText(step4Prompt, 240, 'Step 4');
-        const step4 = extractJSON(step4Raw);
-        const composition = String(step4.composition || '').trim();
-        const layering = normalizeList(step4.layering).slice(0, 5);
-        const keyClusters = normalizeList(step4.keyClusters).slice(0, 5);
-        const focalPixels = normalizeList(step4.focalPixels).slice(0, 5);
+        let plan4;
+        try {
+          plan4 = validateStep4Layout(extractJSON(step4Raw));
+        } catch (error) {
+          plan4 = { valid: false, reason: error?.message || 'Could not parse JSON from Step 4.' };
+        }
+        if (!plan4.valid) {
+          appendMessage(
+            'assistant',
+            'Step 4 – Validator',
+            `${plan4.reason} Retrying with stricter formatting guidance.`,
+          );
+          const step4RetryRaw = await generateText(
+            buildStep4Prompt(subject, motifs, featurePriority, colors, accent, { retry: true }),
+            220,
+            'Step 4 Retry',
+          );
+          try {
+            plan4 = validateStep4Layout(extractJSON(step4RetryRaw));
+          } catch (error) {
+            plan4 = { valid: false, reason: error?.message || 'Could not parse JSON from Step 4 retry.' };
+          }
+          if (!plan4.valid) {
+            appendMessage(
+              'assistant',
+              'Step 4 – Validator',
+              'Using heuristic layout guidance for the composition stage.',
+            );
+            plan4 = buildStep4Fallback(subject, motifs, featurePriority);
+          }
+        }
+        const { composition, layering, keyClusters, focalPixels } = plan4;
 
         setStatus('Step 5/5 – Generating the pixel template...');
         const paletteMap = {};
