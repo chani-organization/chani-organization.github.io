@@ -776,6 +776,8 @@
           'Fill the template with real words and remove blank items.',
           'motifs = three or four short noun phrases.',
           'featurePriority = at least three concrete elements to emphasize.',
+          'Tie every motif directly to the subject or symbolism keywords so the art clearly conveys the theme.',
+          'If symbolism cues are present, ensure at least one motif turns each cue into a tangible prop, emblem, or environmental marker.',
         ];
         if (retry) {
           base.push(
@@ -804,10 +806,16 @@
 
       function buildStep2Fallback(subject, traits, symbolism) {
         const subjectLine = cleanSingleLine(subject, 50) || 'focal figure';
+        const symbolismAnchors = (symbolism || [])
+          .map((item) => cleanSingleLine(item, 50))
+          .filter(Boolean)
+          .map((cue) => `${cue} motif`);
+        const symbolismClean = (symbolism || []).map((item) => cleanSingleLine(item, 50)).filter(Boolean);
         const seeds = [
+          ...symbolismAnchors,
           subjectLine,
           ...traits.map((item) => cleanSingleLine(item, 50)),
-          ...symbolism.map((item) => cleanSingleLine(item, 50)),
+          ...symbolismClean,
         ].filter(Boolean);
         const motifFallbacks = [
           `${subjectLine} stance`,
@@ -816,6 +824,12 @@
           'ground shadow',
         ];
         const motifs = ensureMinimumList(seeds, 3, motifFallbacks).slice(0, 4);
+        for (const cue of symbolismAnchors) {
+          if (motifs.length >= 4) break;
+          if (!motifs.some((motif) => motif.toLowerCase().includes(cue.toLowerCase()))) {
+            motifs.push(cleanSingleLine(cue, 50));
+          }
+        }
         const featureFallbacks = [
           'armor plate highlights',
           'visor glow',
@@ -825,7 +839,7 @@
         const featurePriority = ensureMinimumList(
           traits.map((item) => cleanSingleLine(item, 60)),
           3,
-          [...symbolism.map((item) => cleanSingleLine(item, 60)), ...featureFallbacks],
+          [...symbolismClean.map((item) => cleanSingleLine(item, 60)), ...featureFallbacks],
         ).slice(0, 5);
         const silhouetteTokens = subjectLine.split(/\s+/).filter(Boolean);
         const silhouette = cleanSingleLine(silhouetteTokens[silhouetteTokens.length - 1] || subjectLine, 20) || 'heroic';
@@ -1739,6 +1753,7 @@
           'Return JSON only. Exact format: {"size":24,"palette":{...},"data":["........................"]}.',
           'Grid is 24x24. Use "0" for background and palette keys 1-9 for painted pixels.',
           'Aim for 25%–50% filled cells with connected shapes that show the symbolism.',
+          'Translate each motif into clear pixel clusters—props, icons, or patterns—that make the symbolism easy to recognize.',
           'Use only the supplied palette keys, keep each string length 24, and do not add text outside the JSON.'
         ].join('\n');
         const step5Raw = await generateText(step5Prompt, 420, 'Step 5');
