@@ -21,12 +21,12 @@
         flex-direction: column;
         align-items: center;
         gap: 28px;
-        background: #020;
-        background-image: linear-gradient(rgba(0, 32, 0, 0.4) 1px, transparent 1px),
-          radial-gradient(circle at 20% 20%, rgba(0, 64, 0, 0.2), transparent 45%),
-          radial-gradient(circle at 80% 15%, rgba(0, 32, 0, 0.2), transparent 55%);
+        background: #050505;
+        background-image: linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+          radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.05), transparent 45%),
+          radial-gradient(circle at 80% 15%, rgba(255, 255, 255, 0.03), transparent 55%);
         background-size: 100% 3px, 100% 100%, 100% 100%;
-        color: #33ff88;
+        color: #d8d8d8;
         font-family: "IBM Plex Mono", "Fira Code", "JetBrains Mono", Menlo, Consolas, monospace;
         text-align: center;
         position: relative;
@@ -39,45 +39,45 @@
         pointer-events: none;
         background: repeating-linear-gradient(
           to bottom,
-          rgba(0, 0, 0, 0) 0px,
-          rgba(0, 0, 0, 0) 2px,
-          rgba(0, 0, 0, 0.08) 3px
+          rgba(255, 255, 255, 0) 0px,
+          rgba(255, 255, 255, 0) 2px,
+          rgba(255, 255, 255, 0.08) 3px
         );
-        mix-blend-mode: overlay;
-        opacity: 0.6;
+        mix-blend-mode: screen;
+        opacity: 0.4;
       }
       h1 {
         margin: 0;
         font-size: clamp(1.6rem, 2vw + 1rem, 2.6rem);
         letter-spacing: 0.1rem;
         text-transform: uppercase;
-        text-shadow: 0 0 6px rgba(0, 255, 128, 0.6);
+        text-shadow: 0 0 6px rgba(255, 255, 255, 0.35);
       }
       .badge-strip {
         display: flex;
         flex-wrap: wrap;
         justify-content: center;
         gap: 8px;
-        color: #1dd16b;
+        color: #b5b5b5;
         font-size: 0.82rem;
         text-transform: uppercase;
         letter-spacing: 0.08rem;
       }
       .badge {
-        border: 1px solid rgba(0, 200, 92, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.18);
         border-radius: 0;
         padding: 4px 12px;
-        background: rgba(0, 40, 0, 0.65);
-        box-shadow: 0 0 0 1px rgba(0, 255, 140, 0.25);
+        background: rgba(20, 20, 20, 0.75);
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
       }
       .mainframe {
         width: min(1100px, 100%);
         padding: 18px 22px 30px;
         position: relative;
-        border: 2px solid #16a34a;
+        border: 2px solid #2f2f2f;
         color: inherit;
-        background: rgba(0, 20, 0, 0.82);
-        box-shadow: 0 0 40px rgba(0, 64, 16, 0.35);
+        background: rgba(12, 12, 12, 0.85);
+        box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
         display: flex;
         flex-direction: column;
         gap: 22px;
@@ -87,7 +87,7 @@
         content: "";
         position: absolute;
         inset: 8px;
-        border: 1px dashed rgba(34, 197, 94, 0.3);
+        border: 1px dashed rgba(255, 255, 255, 0.12);
         pointer-events: none;
       }
       .ui-shell {
@@ -109,70 +109,52 @@
         align-items: center;
         justify-content: center;
         padding: 16px;
-        border: 1px solid rgba(34, 197, 94, 0.6);
-        box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.15) inset;
-        background: rgba(4, 40, 12, 0.75);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.06) inset;
+        background: rgba(18, 18, 18, 0.85);
       }
       canvas {
         width: 100%;
         max-width: 720px;
         aspect-ratio: 4 / 3;
         background: #000;
-        border: 1px solid rgba(34, 197, 94, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.22);
         display: block;
         image-rendering: pixelated;
-        box-shadow: 0 0 18px rgba(13, 148, 136, 0.25) inset;
+        box-shadow: 0 0 18px rgba(0, 0, 0, 0.65) inset;
       }
       .panel {
         position: relative;
         padding: 18px;
-        color: #7bffb9;
+        color: #d0d0d0;
         text-align: left;
         display: flex;
         flex-direction: column;
         gap: 10px;
-        border: 1px solid rgba(34, 197, 94, 0.55);
-        background: rgba(5, 32, 8, 0.82);
-        box-shadow: 0 0 0 1px rgba(13, 148, 136, 0.18) inset;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(18, 18, 18, 0.85);
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+        border-radius: 8px;
       }
       .panel::before {
         content: "";
         position: absolute;
         inset: 6px;
-        border: 1px dashed rgba(76, 255, 170, 0.35);
+        border: 1px dashed rgba(255, 255, 255, 0.1);
         pointer-events: none;
-      }
-      .panel h2 {
-        margin: 0 0 8px;
-        font-size: 0.95rem;
-        text-transform: uppercase;
-        letter-spacing: 0.2rem;
-        color: #4cffaa;
-      }
-      .panel {
-        background: #00170e;
-        border: 1px solid #004225;
-        border-radius: 8px;
-        padding: 16px 18px;
-        color: #80ffce;
-        text-align: left;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        box-shadow: 0 0 0 1px rgba(0, 66, 37, 0.4) inset;
       }
       .panel h2 {
         margin: 0 0 6px;
         font-size: 0.95rem;
         text-transform: uppercase;
         letter-spacing: 0.18rem;
-        color: #00d27f;
+        color: #f0f0f0;
       }
       #hud {
         gap: 10px;
       }
       #hud strong {
-        color: #b9ffe5;
+        color: #f5f5f5;
       }
       .stat-line {
         font-size: 0.82rem;
@@ -183,7 +165,7 @@
         flex-wrap: wrap;
       }
       .stat-line strong {
-        color: #cafff0;
+        color: #f5f5f5;
       }
       .xp-track {
         gap: 10px;
@@ -192,22 +174,22 @@
         flex: 1;
         position: relative;
         height: 12px;
-        border: 1px solid rgba(34, 197, 94, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.15);
         border-radius: 0;
         overflow: hidden;
-        background: rgba(2, 32, 12, 0.8);
+        background: rgba(20, 20, 20, 0.8);
         min-width: 140px;
-        box-shadow: 0 0 12px rgba(13, 148, 136, 0.25) inset;
+        box-shadow: 0 0 12px rgba(0, 0, 0, 0.45) inset;
       }
       #xp-progress {
         position: absolute;
         inset: 0;
         width: 0%;
-        background: linear-gradient(90deg, rgba(76, 255, 170, 0.8), rgba(34, 197, 94, 0.6));
+        background: linear-gradient(90deg, rgba(170, 170, 170, 0.9), rgba(100, 100, 100, 0.85));
       }
       #buffs {
         min-height: 1em;
-        color: #5dfdff;
+        color: #c5c5c5;
         letter-spacing: 0.1rem;
       }
       #shop-panel {
@@ -222,7 +204,7 @@
         gap: 12px;
       }
       .gold-display strong {
-        color: #f5ff75;
+        color: #ffd447;
       }
       #shop-items {
         display: flex;
@@ -230,9 +212,9 @@
         gap: 10px;
       }
       .shop-item {
-        border: 1px solid rgba(34, 197, 94, 0.6);
-        background: rgba(8, 44, 12, 0.82);
-        color: #92ffe0;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        background: rgba(20, 20, 20, 0.82);
+        color: #d0d0d0;
         border-radius: 0;
         padding: 10px 14px;
         text-align: left;
@@ -251,7 +233,7 @@
         content: "";
         position: absolute;
         inset: 4px;
-        border: 1px dashed rgba(76, 255, 170, 0.35);
+        border: 1px dashed rgba(255, 255, 255, 0.1);
         pointer-events: none;
       }
       .shop-item:hover:not(:disabled) {
@@ -261,7 +243,7 @@
       .shop-item:disabled {
         opacity: 0.45;
         cursor: not-allowed;
-        border-color: rgba(34, 197, 94, 0.25);
+        border-color: rgba(255, 255, 255, 0.08);
       }
       .shop-item .label {
         font-weight: 600;
@@ -270,11 +252,11 @@
       .shop-item .desc {
         grid-column: 1 / -1;
         font-size: 0.75rem;
-        color: #5fffd3;
+        color: #bcbcbc;
       }
       .shop-item .cost {
         font-size: 0.8rem;
-        color: #f5ff75;
+        color: #ffd447;
         align-self: start;
       }
       #footer-hud {
@@ -283,33 +265,33 @@
         gap: 12px;
         font-size: 0.88rem;
         letter-spacing: 0.14rem;
-        color: #4cffaa;
+        color: #d0d0d0;
         text-transform: uppercase;
         padding: 10px 18px;
-        border: 1px solid rgba(34, 197, 94, 0.6);
-        background: rgba(8, 44, 12, 0.75);
-        box-shadow: 0 0 0 1px rgba(76, 255, 170, 0.2) inset;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        background: rgba(20, 20, 20, 0.85);
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6) inset;
       }
       #footer-hud strong {
-        color: #cafff0;
+        color: #f5f5f5;
       }
       .instructions {
         max-width: 680px;
         font-size: 0.92rem;
-        color: #9bffd8;
-        background: rgba(5, 32, 8, 0.82);
-        border: 1px solid rgba(34, 197, 94, 0.55);
+        color: #d0d0d0;
+        background: rgba(18, 18, 18, 0.85);
+        border: 1px solid rgba(255, 255, 255, 0.12);
         padding: 20px 22px;
         line-height: 1.6;
         text-align: left;
         position: relative;
-        box-shadow: 0 0 0 1px rgba(13, 148, 136, 0.18) inset;
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
       }
       .instructions::before {
         content: "";
         position: absolute;
         inset: 6px;
-        border: 1px dashed rgba(76, 255, 170, 0.35);
+        border: 1px dashed rgba(255, 255, 255, 0.1);
         pointer-events: none;
       }
       .instructions h2 {
@@ -318,12 +300,12 @@
         font-size: 0.95rem;
         text-transform: uppercase;
         letter-spacing: 0.18rem;
-        color: #4cffaa;
+        color: #f0f0f0;
       }
       .log {
         margin-top: 10px;
         font-size: 0.82rem;
-        color: #5dfdff;
+        color: #c5c5c5;
       }
       .game-over-banner {
         position: absolute;
@@ -332,8 +314,8 @@
         align-items: center;
         justify-content: center;
         background: rgba(0, 0, 0, 0.85);
-        border: 1px solid rgba(76, 255, 170, 0.6);
-        color: #ff8ae2;
+        border: 1px solid rgba(255, 71, 71, 0.65);
+        color: #ffd447;
         text-transform: uppercase;
         letter-spacing: 0.22rem;
         font-weight: bold;
@@ -492,7 +474,7 @@
           for (let c = 0; c < COLS; c++) {
             const glyph = asciiGrid[r][c];
             if (glyph === ' ') continue;
-            ctx.fillStyle = colorGrid[r][c] || '#00ff90';
+            ctx.fillStyle = colorGrid[r][c] || '#d8d8d8';
             ctx.fillText(glyph, c * CELL_SIZE, r * CELL_SIZE);
           }
         }
@@ -696,7 +678,7 @@
           name: 'Glitch Bit',
           minTime: 0,
           glyph: 'x',
-          color: '#ff4a78',
+          color: '#ff4747',
           radius: [14, 20],
           speed: [70, 115],
           health: 28,
@@ -707,7 +689,7 @@
           name: 'Daemon Wisp',
           minTime: 20000,
           glyph: ':',
-          color: '#7cd6ff',
+          color: '#ff4747',
           radius: [10, 14],
           speed: [120, 180],
           health: 16,
@@ -719,7 +701,7 @@
           name: 'Kernel Bruiser',
           minTime: 45000,
           glyph: '#',
-          color: '#ffb540',
+          color: '#ff4747',
           radius: [22, 30],
           speed: [45, 70],
           health: 65,
@@ -730,7 +712,7 @@
           name: 'Torrent Brood',
           minTime: 60000,
           glyph: '&',
-          color: '#00ffa0',
+          color: '#ff4747',
           radius: [12, 16],
           speed: [90, 140],
           health: 22,
@@ -1052,21 +1034,22 @@
         const player = state.player;
         const col = Math.floor(player.x / CELL_SIZE);
         const row = Math.floor(player.y / CELL_SIZE);
-        placeGlyphCell(col, row, '@', '#00ff90');
+        placeGlyphCell(col, row, '@', '#f5f5f5');
         if (state.effects.overclock > 0) {
-          placeGlyphCell(col, row - 1, '^', '#ffe066');
+          placeGlyphCell(col, row - 1, '^', '#ffd447');
         }
         if (state.effects.shield > 0) {
-          placeGlyphCell(col - 1, row, '(', '#38f9ff');
-          placeGlyphCell(col + 1, row, ')', '#38f9ff');
-          placeGlyphCell(col, row + 1, '_', '#38f9ff');
+          const shieldColor = '#bfbfbf';
+          placeGlyphCell(col - 1, row, '(', shieldColor);
+          placeGlyphCell(col + 1, row, ')', shieldColor);
+          placeGlyphCell(col, row + 1, '_', shieldColor);
         }
       }
 
       function drawBullets() {
         for (const bullet of state.bullets) {
           const glyph = bullet.life > 600 ? '*' : '.';
-          placeGlyph(bullet.x, bullet.y, glyph, '#9ef8ff');
+          placeGlyph(bullet.x, bullet.y, glyph, '#bfbfbf');
         }
       }
 
@@ -1074,13 +1057,13 @@
         for (const enemy of state.enemies) {
           const col = Math.floor(enemy.x / CELL_SIZE);
           const row = Math.floor(enemy.y / CELL_SIZE);
-          placeGlyphCell(col, row, enemy.glyph || 'x', enemy.color || '#ff4a78');
+          placeGlyphCell(col, row, enemy.glyph || 'x', enemy.color || '#ff4747');
           if (enemy.behavior === 'zig') {
             const tail = (Math.floor(state.elapsed / 160) + row) % 2 === 0 ? '/' : '\\';
-            placeGlyphCell(col, row + 1, tail, '#54caff');
+            placeGlyphCell(col, row + 1, tail, '#ff6b6b');
           }
           if (enemy.health < enemy.maxHealth * 0.35) {
-            placeGlyphCell(col, row - 1, '!', '#ffef5c');
+            placeGlyphCell(col, row - 1, '!', '#ff6b6b');
           }
         }
       }
@@ -1088,13 +1071,13 @@
       function drawItems() {
         for (const item of state.items) {
           if (item.type === 'xp') {
-            placeGlyph(item.x, item.y, '+', '#00ff90');
+            placeGlyph(item.x, item.y, '+', '#ffd447');
           } else if (item.type === 'heal') {
-            placeGlyph(item.x, item.y, '$', '#ffe066');
+            placeGlyph(item.x, item.y, '$', '#ffd447');
           } else if (item.type === 'overclock') {
-            placeGlyph(item.x, item.y, '*', '#00d8ff');
+            placeGlyph(item.x, item.y, '*', '#ffd447');
           } else if (item.type === 'shield') {
-            placeGlyph(item.x, item.y, 'O', '#d2a6ff');
+            placeGlyph(item.x, item.y, 'O', '#ffd447');
           }
         }
       }
@@ -1105,18 +1088,18 @@
           for (let col = 0; col < COLS; col++) {
             if (asciiGrid[row][col] !== ' ') continue;
             if ((row + drift) % 6 === 0 && col % 7 === 0) {
-              placeGlyphCell(col, row, '.', '#012417');
+              placeGlyphCell(col, row, '.', '#101010');
             } else if ((col + row + drift) % 19 === 0) {
-              placeGlyphCell(col, row, '`', '#01381f');
+              placeGlyphCell(col, row, '`', '#141414');
             } else if ((col + drift) % 18 === 0 && row % 5 === 0) {
-              placeGlyphCell(col, row, '|', '#013422');
+              placeGlyphCell(col, row, '|', '#181818');
             }
           }
         }
         const scanRow = ((Math.floor(now / 90)) % ROWS + ROWS) % ROWS;
         for (let col = 0; col < COLS; col++) {
           if (asciiGrid[scanRow][col] === ' ') {
-            placeGlyphCell(col, scanRow, '-', '#014d30');
+            placeGlyphCell(col, scanRow, '-', '#1f1f1f');
           }
         }
       }
