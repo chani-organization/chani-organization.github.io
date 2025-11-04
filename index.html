@@ -20,106 +20,104 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 24px;
+        gap: 20px;
         padding: 32px 16px 64px;
-        background: radial-gradient(circle at top, #02100f 0%, #01060a 50%, #000203 100%);
-        color: #7fffd4;
+        background: #000;
+        color: #00ff90;
         font-family: "Fira Code", "JetBrains Mono", Menlo, Consolas, monospace;
         text-align: center;
       }
       h1 {
         margin: 0;
-        text-transform: uppercase;
-        letter-spacing: 0.32rem;
-        font-size: clamp(1.5rem, 2vw + 1rem, 2.6rem);
-        text-shadow: 0 0 8px rgba(127, 255, 212, 0.45);
+        font-size: clamp(1.6rem, 2vw + 1rem, 2.5rem);
+        letter-spacing: 0.08rem;
+        text-transform: none;
       }
       .badge-strip {
         display: flex;
         flex-wrap: wrap;
         justify-content: center;
-        gap: 12px;
-        color: #0aff92;
+        gap: 8px;
+        color: #00c176;
         font-size: 0.85rem;
       }
       .badge {
-        border: 1px solid rgba(0, 255, 170, 0.45);
-        border-radius: 999px;
-        padding: 6px 14px;
-        background: rgba(0, 32, 24, 0.75);
-        box-shadow: 0 0 12px rgba(0, 255, 170, 0.18);
+        border: 1px solid rgba(0, 193, 118, 0.6);
+        border-radius: 4px;
+        padding: 4px 10px;
+        background: rgba(0, 40, 24, 0.6);
+        letter-spacing: 0.08rem;
         text-transform: uppercase;
-        letter-spacing: 0.14rem;
       }
       #game-wrapper {
         position: relative;
-        padding: 20px;
-        border: 2px solid rgba(0, 255, 170, 0.25);
-        border-radius: 18px;
-        background: rgba(0, 15, 10, 0.88);
-        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), inset 0 0 24px rgba(0, 255, 170, 0.08);
+        padding: 18px;
+        border: 1px solid #007744;
+        border-radius: 8px;
+        background: #00150d;
+        box-shadow: 0 0 0 1px #002f1b inset;
       }
       canvas {
         width: min(90vw, 720px);
         max-width: 720px;
         aspect-ratio: 4 / 3;
-        border-radius: 12px;
-        background: #000c07;
+        background: #000;
+        border: 1px solid #004b2b;
         display: block;
+        image-rendering: pixelated;
       }
       #hud {
         margin-top: 16px;
         display: grid;
         gap: 6px;
-        color: #6cffc8;
-        font-size: clamp(0.8rem, 1.5vw, 1rem);
+        color: #00e089;
+        font-size: clamp(0.78rem, 1.5vw, 0.95rem);
         text-transform: uppercase;
-        letter-spacing: 0.1rem;
+        letter-spacing: 0.08rem;
+        text-align: left;
       }
       #hud strong {
-        color: #9ef8ff;
+        color: #b7fff0;
       }
       .instructions {
         max-width: 640px;
-        font-size: 0.9rem;
-        color: #88ffd2;
-        background: rgba(0, 26, 20, 0.7);
-        border: 1px solid rgba(0, 255, 170, 0.2);
-        border-radius: 16px;
-        padding: 18px 22px;
+        font-size: 0.92rem;
+        color: #80ffce;
+        background: #00170e;
+        border: 1px solid #004225;
+        border-radius: 8px;
+        padding: 16px 20px;
         line-height: 1.6;
         text-align: left;
-        box-shadow: inset 0 0 12px rgba(0, 255, 170, 0.12);
+        box-shadow: none;
       }
       .instructions h2 {
         margin-top: 0;
         margin-bottom: 8px;
-        font-size: 1rem;
+        font-size: 0.95rem;
         text-transform: uppercase;
-        letter-spacing: 0.2rem;
-        color: #0aff92;
+        letter-spacing: 0.18rem;
+        color: #00d27f;
       }
       .log {
         margin-top: 10px;
-        font-size: 0.8rem;
-        color: #38f9ff;
+        font-size: 0.82rem;
+        color: #4bffea;
       }
       .game-over-banner {
         position: absolute;
-        inset: 20px;
+        inset: 18px;
         display: flex;
         align-items: center;
         justify-content: center;
-        background: rgba(2, 10, 8, 0.88);
-        border: 1px solid rgba(0, 255, 170, 0.2);
-        border-radius: 12px;
-        color: #ff9ddf;
+        background: rgba(0, 0, 0, 0.85);
+        border: 1px solid #00aa6a;
+        border-radius: 6px;
+        color: #ff81bf;
         text-transform: uppercase;
-        letter-spacing: 0.28rem;
+        letter-spacing: 0.22rem;
         font-weight: bold;
-        font-size: clamp(1.2rem, 3vw, 2rem);
-        text-shadow: 0 0 16px rgba(255, 0, 120, 0.45);
-        backdrop-filter: blur(4px);
+        font-size: clamp(1.1rem, 3vw, 1.8rem);
       }
       .game-over-banner[hidden] {
         display: none !important;
@@ -127,17 +125,17 @@
       #xp-bar {
         position: relative;
         height: 12px;
-        border: 1px solid rgba(0, 255, 170, 0.4);
+        border: 1px solid #005f38;
         border-radius: 999px;
         overflow: hidden;
-        background: rgba(0, 26, 20, 0.7);
+        background: #001f13;
       }
       #xp-progress {
         position: absolute;
         inset: 0;
         width: 0%;
-        background: linear-gradient(90deg, rgba(0, 255, 170, 0.7), rgba(0, 148, 255, 0.7));
-        box-shadow: 0 0 12px rgba(0, 255, 170, 0.4);
+        background: linear-gradient(90deg, rgba(0, 255, 170, 0.7), rgba(0, 128, 255, 0.6));
+        box-shadow: none;
       }
       #buffs {
         min-height: 1em;
@@ -155,44 +153,46 @@
     </style>
   </head>
   <body>
-    <h1>$ Neon Survivors</h1>
+    <h1>&gt; Vampire Survivors [TTY]</h1>
     <div class="badge-strip" aria-hidden="true">
-      <span class="badge">bash green</span>
-      <span class="badge">ascii vibes</span>
-      <span class="badge">auto battler prototype</span>
+      <span class="badge">tty skin</span>
+      <span class="badge">ascii output</span>
+      <span class="badge">auto survivor proto</span>
     </div>
     <div id="game-wrapper">
       <canvas id="game" width="960" height="720" role="presentation"></canvas>
       <div id="game-over" class="game-over-banner" hidden>Process Terminated</div>
       <div id="hud" aria-live="polite">
-        <div>Time Online: <strong id="time">0.0s</strong></div>
-        <div>Threats Purged: <strong id="kills">0</strong></div>
-        <div>Core Integrity: <strong id="health">100%</strong></div>
-        <div>Operator Level: <strong id="level">1</strong></div>
+        <div>UPTIME &gt;&gt; <strong id="time">0.0s</strong></div>
+        <div>THREATS PURGED &gt;&gt; <strong id="kills">0</strong></div>
+        <div>CORE INTEGRITY &gt;&gt; <strong id="health">100%</strong></div>
+        <div>LEVEL &gt;&gt; <strong id="level">1</strong></div>
         <div id="xp-bar" aria-hidden="true"><span id="xp-progress"></span></div>
-        <div>Active Buffs: <strong id="buffs">None</strong></div>
+        <div>BUFFS &gt;&gt; <strong id="buffs">NONE</strong></div>
       </div>
     </div>
     <section class="instructions">
       <h2>Operator Manual</h2>
       <p>
-        <strong>Move</strong> with <kbd>WASD</kbd> or the arrow keys. Your rig auto-fires at the nearest hostile and vacuums
-        dropped <em>data shards</em> to gain experience. Spend time online to meet tougher daemons and harvest better
-        loot.
+        Steer the <code>@</code> marker with <kbd>WASD</kbd> or the arrow keys. Weapons auto-fire toward the closest hostile
+        glyph while loose <code>+</code> shards drift toward you for experience. Last longer to invite denser waves and
+        nastier ASCII sigils.
       </p>
       <p>
-        Defeated foes drop <em>energy cells</em> and <em>overclock cores</em>. Energy cells repair integrity; overclock cores
-        slash weapon cooldowns for a short burst. Collect shards to level up and automatically upgrade your rig.
+        Terminated daemons scatter pickups: <em>energy cells</em> (<code>$</code>) restore integrity, <em>overclock cores</em>
+        (<code>*</code>) spike fire rate, and <em>phase shields</em> (<code>O</code>) blunt incoming damage. Each level-up
+        installs automated upgrades&mdash;just keep harvesting glyphs.
       </p>
       <p>
-        Every wave accelerates. Collisions drain core integrity. When the core reaches zero, the process halts. Tap
-        <strong>Enter</strong> or click anywhere inside the viewport to reboot the simulation.
+        Waves accelerate relentlessly. Contact damage chews through integrity; zero integrity ends the session. Hit
+        <strong>Enter</strong> or click inside the viewport to reboot the simulation at any time.
       </p>
-      <p id="status" class="log" role="status">Prototype build &mdash; visuals inspired by terminal-era bash screensavers.</p>
+      <p id="status" class="log" role="status">BOOT LOG &gt; ASCII renderer online.</p>
     </section>
     <script>
       const canvas = document.getElementById('game');
       const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
       const hud = {
         time: document.getElementById('time'),
         kills: document.getElementById('kills'),
@@ -203,6 +203,47 @@
       };
       const gameOverBanner = document.getElementById('game-over');
       const statusLine = document.getElementById('status');
+
+      const CELL_SIZE = 12;
+      const COLS = Math.floor(canvas.width / CELL_SIZE);
+      const ROWS = Math.floor(canvas.height / CELL_SIZE);
+      const asciiGrid = Array.from({ length: ROWS }, () => Array(COLS).fill(' '));
+      const colorGrid = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+
+      function clearAsciiGrid() {
+        for (let r = 0; r < ROWS; r++) {
+          asciiGrid[r].fill(' ');
+          colorGrid[r].fill(null);
+        }
+      }
+
+      function placeGlyphCell(col, row, glyph, color) {
+        if (col < 0 || row < 0 || col >= COLS || row >= ROWS) return;
+        asciiGrid[row][col] = glyph;
+        colorGrid[row][col] = color;
+      }
+
+      function placeGlyph(x, y, glyph, color) {
+        const col = Math.floor(x / CELL_SIZE);
+        const row = Math.floor(y / CELL_SIZE);
+        placeGlyphCell(col, row, glyph, color);
+      }
+
+      function commitAsciiGrid() {
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.font = `bold ${CELL_SIZE - 1}px "Fira Code", "JetBrains Mono", monospace`;
+        ctx.textBaseline = 'top';
+        ctx.textAlign = 'left';
+        for (let r = 0; r < ROWS; r++) {
+          for (let c = 0; c < COLS; c++) {
+            const glyph = asciiGrid[r][c];
+            if (glyph === ' ') continue;
+            ctx.fillStyle = colorGrid[r][c] || '#00ff90';
+            ctx.fillText(glyph, c * CELL_SIZE, r * CELL_SIZE);
+          }
+        }
+      }
 
       const state = {
         running: false,
@@ -274,7 +315,7 @@
         state.effects.overclock = 0;
         state.effects.shield = 0;
         gameOverBanner.hidden = true;
-        setStatus('Simulation booted. Collect shards and survive.');
+        setStatus('SESSION ONLINE. Collect shards and survive.');
         requestAnimationFrame(loop);
       }
 
@@ -282,7 +323,8 @@
         {
           name: 'Glitch Bit',
           minTime: 0,
-          color: ['rgba(255, 64, 120, 0.9)', 'rgba(120, 12, 42, 0.6)'],
+          glyph: 'x',
+          color: '#ff4a78',
           radius: [14, 20],
           speed: [70, 115],
           health: 28,
@@ -292,7 +334,8 @@
         {
           name: 'Daemon Wisp',
           minTime: 20000,
-          color: ['rgba(120, 200, 255, 0.9)', 'rgba(30, 70, 140, 0.6)'],
+          glyph: ':',
+          color: '#7cd6ff',
           radius: [10, 14],
           speed: [120, 180],
           health: 16,
@@ -303,7 +346,8 @@
         {
           name: 'Kernel Bruiser',
           minTime: 45000,
-          color: ['rgba(255, 180, 64, 0.9)', 'rgba(130, 60, 0, 0.6)'],
+          glyph: '#',
+          color: '#ffb540',
           radius: [22, 30],
           speed: [45, 70],
           health: 65,
@@ -313,7 +357,8 @@
         {
           name: 'Torrent Brood',
           minTime: 60000,
-          color: ['rgba(0, 255, 170, 0.9)', 'rgba(0, 130, 90, 0.6)'],
+          glyph: '&',
+          color: '#00ffa0',
           radius: [12, 16],
           speed: [90, 140],
           health: 22,
@@ -359,6 +404,7 @@
             damage: type.damage,
             xp: type.xp,
             behavior: type.behavior || null,
+            glyph: type.glyph,
             color: type.color,
             wobble: rand(0, Math.PI * 2),
           };
@@ -512,9 +558,9 @@
       function applyEffect(name, duration) {
         state.effects[name] = Math.max(state.effects[name], duration);
         if (name === 'overclock') {
-          setStatus('Overclock core engaged!');
+          setStatus('OVERCLOCK CORE >> ACTIVE');
         } else if (name === 'shield') {
-          setStatus('Phase shield deployed.');
+          setStatus('PHASE SHIELD DEPLOYED');
         }
       }
 
@@ -630,94 +676,85 @@
 
       function drawPlayer() {
         const player = state.player;
-        ctx.save();
-        ctx.translate(player.x, player.y);
-        ctx.fillStyle = '#0aff92';
-        ctx.beginPath();
-        ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#38f9ff';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.restore();
+        const col = Math.floor(player.x / CELL_SIZE);
+        const row = Math.floor(player.y / CELL_SIZE);
+        placeGlyphCell(col, row, '@', '#00ff90');
+        if (state.effects.overclock > 0) {
+          placeGlyphCell(col, row - 1, '^', '#ffe066');
+        }
+        if (state.effects.shield > 0) {
+          placeGlyphCell(col - 1, row, '(', '#38f9ff');
+          placeGlyphCell(col + 1, row, ')', '#38f9ff');
+          placeGlyphCell(col, row + 1, '_', '#38f9ff');
+        }
       }
 
       function drawBullets() {
-        ctx.fillStyle = '#aefbff';
         for (const bullet of state.bullets) {
-          ctx.beginPath();
-          ctx.arc(bullet.x, bullet.y, bullet.radius, 0, Math.PI * 2);
-          ctx.fill();
+          const glyph = bullet.life > 600 ? '*' : '.';
+          placeGlyph(bullet.x, bullet.y, glyph, '#9ef8ff');
         }
       }
 
       function drawEnemies() {
         for (const enemy of state.enemies) {
-          const gradient = ctx.createRadialGradient(
-            enemy.x,
-            enemy.y,
-            enemy.radius * 0.2,
-            enemy.x,
-            enemy.y,
-            enemy.radius
-          );
-          const [inner, outer] = enemy.color;
-          gradient.addColorStop(0, inner);
-          gradient.addColorStop(1, outer);
-          ctx.fillStyle = gradient;
-          ctx.beginPath();
-          ctx.arc(enemy.x, enemy.y, enemy.radius, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.strokeStyle = 'rgba(255, 160, 200, 0.6)';
-          ctx.stroke();
+          const col = Math.floor(enemy.x / CELL_SIZE);
+          const row = Math.floor(enemy.y / CELL_SIZE);
+          placeGlyphCell(col, row, enemy.glyph || 'x', enemy.color || '#ff4a78');
+          if (enemy.behavior === 'zig') {
+            const tail = (Math.floor(state.elapsed / 160) + row) % 2 === 0 ? '/' : '\\';
+            placeGlyphCell(col, row + 1, tail, '#54caff');
+          }
+          if (enemy.health < enemy.maxHealth * 0.35) {
+            placeGlyphCell(col, row - 1, '!', '#ffef5c');
+          }
         }
       }
 
       function drawItems() {
         for (const item of state.items) {
           if (item.type === 'xp') {
-            const gradient = ctx.createRadialGradient(item.x, item.y, 2, item.x, item.y, item.radius);
-            gradient.addColorStop(0, 'rgba(0, 255, 170, 0.9)');
-            gradient.addColorStop(1, 'rgba(0, 150, 120, 0.5)');
-            ctx.fillStyle = gradient;
+            placeGlyph(item.x, item.y, '+', '#00ff90');
           } else if (item.type === 'heal') {
-            ctx.fillStyle = 'rgba(255, 214, 102, 0.85)';
+            placeGlyph(item.x, item.y, '$', '#ffe066');
           } else if (item.type === 'overclock') {
-            ctx.fillStyle = 'rgba(0, 200, 255, 0.85)';
+            placeGlyph(item.x, item.y, '*', '#00d8ff');
           } else if (item.type === 'shield') {
-            ctx.fillStyle = 'rgba(200, 120, 255, 0.8)';
+            placeGlyph(item.x, item.y, 'O', '#d2a6ff');
           }
-          ctx.beginPath();
-          ctx.arc(item.x, item.y, item.radius, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.strokeStyle = 'rgba(0, 255, 170, 0.25)';
-          ctx.stroke();
         }
       }
 
       function drawBackground(now) {
-        ctx.fillStyle = '#000c07';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        const scanlines = 24;
-        ctx.globalAlpha = 0.12;
-        ctx.fillStyle = '#0aff92';
-        for (let i = 0; i < scanlines; i++) {
-          const y = (i / scanlines) * canvas.height;
-          ctx.fillRect(0, y, canvas.width, 1);
+        const drift = Math.floor(now / 160);
+        for (let row = 0; row < ROWS; row++) {
+          for (let col = 0; col < COLS; col++) {
+            if (asciiGrid[row][col] !== ' ') continue;
+            if ((row + drift) % 6 === 0 && col % 7 === 0) {
+              placeGlyphCell(col, row, '.', '#012417');
+            } else if ((col + row + drift) % 19 === 0) {
+              placeGlyphCell(col, row, '`', '#01381f');
+            } else if ((col + drift) % 18 === 0 && row % 5 === 0) {
+              placeGlyphCell(col, row, '|', '#013422');
+            }
+          }
         }
-        ctx.globalAlpha = 1;
-        const flicker = 3 + Math.sin(now / 120) * 2;
-        ctx.strokeStyle = `rgba(0, 255, 170, ${0.08 + Math.sin(now / 320) * 0.04})`;
-        ctx.lineWidth = flicker;
-        ctx.strokeRect(8, 8, canvas.width - 16, canvas.height - 16);
+        const scanRow = ((Math.floor(now / 90)) % ROWS + ROWS) % ROWS;
+        for (let col = 0; col < COLS; col++) {
+          if (asciiGrid[scanRow][col] === ' ') {
+            placeGlyphCell(col, scanRow, '-', '#014d30');
+          }
+        }
       }
 
       function render(now) {
+        clearAsciiGrid();
         drawBackground(now);
-        drawBullets();
-        drawEnemies();
         drawItems();
+        drawEnemies();
+        drawBullets();
         drawPlayer();
+        commitAsciiGrid();
       }
 
       function updateHud() {
@@ -731,19 +768,19 @@
         hud.xpProgress.style.width = `${xpPercent}%`;
         const active = [];
         if (state.effects.overclock > 0) {
-          active.push('Overclock');
+          active.push('OVERCLOCK');
         }
         if (state.effects.shield > 0) {
-          active.push('Shielded');
+          active.push('SHIELD');
         }
-        hud.buffs.textContent = active.length ? active.join(' · ') : 'None';
+        hud.buffs.textContent = active.length ? active.join(' | ') : 'NONE';
       }
 
       function endGame() {
         state.running = false;
         gameOverBanner.hidden = false;
         gameOverBanner.textContent = 'Process Terminated';
-        setStatus('Core failure detected. Press Enter to reboot.');
+        setStatus('CORE FAILURE. PRESS ENTER TO REBOOT.');
       }
 
       function updateStatusTimer(delta) {
@@ -752,7 +789,7 @@
           state.statusTimer -= delta;
           if (state.statusTimer <= 0) {
             state.statusTimer = 0;
-            statusLine.textContent = 'Monitoring...';
+            statusLine.textContent = 'Awaiting input...';
           }
         }
       }
