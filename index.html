@@ -2,1856 +2,481 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Interactive Pixel Art Lab</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Neon Survivors Prototype</title>
     <style>
       :root {
-        color-scheme: light;
+        color-scheme: dark;
       }
-      * {
+      *,
+      *::before,
+      *::after {
         box-sizing: border-box;
       }
       body {
         margin: 0;
         min-height: 100vh;
-        background: #ffffff;
-        color: #1f2937;
-        font-family: "Pretendard", "Apple SD Gothic Neo", "Segoe UI", system-ui, sans-serif;
-      }
-      #app {
-        max-width: 960px;
-        margin: 0 auto;
-        padding: 32px 16px 64px;
-        display: grid;
-        gap: 24px;
-      }
-      header h1 {
-        margin: 0;
-        font-size: 2rem;
-      }
-      header p {
-        margin: 8px 0 0;
-        color: #4b5563;
-      }
-      .controls {
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
-      }
-      .controls input[type="text"] {
-        flex: 1 1 220px;
-        padding: 14px 16px;
-        border-radius: 12px;
-        border: 1px solid #d1d5db;
-        font-size: 1rem;
-      }
-      .controls button {
-        padding: 14px 22px;
-        border-radius: 12px;
-        border: none;
-        background: #2563eb;
-        color: #ffffff;
-        font-weight: 600;
-        cursor: pointer;
-        transition: background 0.2s ease;
-      }
-      .controls button:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-      }
-      .controls button:not(:disabled):hover {
-        background: #1d4ed8;
-      }
-      #status {
-        font-size: 0.95rem;
-        color: #1d4ed8;
-      }
-      .output {
-        display: grid;
-        gap: 16px;
-      }
-      canvas {
-        width: min(80vw, 360px);
-        height: min(80vw, 360px);
-        border-radius: 16px;
-        border: 1px solid #e5e7eb;
-        background: #f8fafc;
-        image-rendering: pixelated;
-      }
-      #log {
-        border: 1px solid #e5e7eb;
-        border-radius: 16px;
-        padding: 16px;
-        background: #f9fafb;
-        max-height: 420px;
-        overflow-y: auto;
         display: flex;
         flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 24px;
+        padding: 32px 16px 64px;
+        background: radial-gradient(circle at top, #02100f 0%, #01060a 50%, #000203 100%);
+        color: #7fffd4;
+        font-family: "Fira Code", "JetBrains Mono", Menlo, Consolas, monospace;
+        text-align: center;
+      }
+      h1 {
+        margin: 0;
+        text-transform: uppercase;
+        letter-spacing: 0.32rem;
+        font-size: clamp(1.5rem, 2vw + 1rem, 2.6rem);
+        text-shadow: 0 0 8px rgba(127, 255, 212, 0.45);
+      }
+      .badge-strip {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
         gap: 12px;
-        font-family: "Fira Code", "JetBrains Mono", SFMono-Regular, Menlo, monospace;
-        font-size: 0.9rem;
-        white-space: pre-wrap;
+        color: #0aff92;
+        font-size: 0.85rem;
       }
-      .message {
-        padding: 12px;
+      .badge {
+        border: 1px solid rgba(0, 255, 170, 0.45);
+        border-radius: 999px;
+        padding: 6px 14px;
+        background: rgba(0, 32, 24, 0.75);
+        box-shadow: 0 0 12px rgba(0, 255, 170, 0.18);
+        text-transform: uppercase;
+        letter-spacing: 0.14rem;
+      }
+      #game-wrapper {
+        position: relative;
+        padding: 20px;
+        border: 2px solid rgba(0, 255, 170, 0.25);
+        border-radius: 18px;
+        background: rgba(0, 15, 10, 0.88);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), inset 0 0 24px rgba(0, 255, 170, 0.08);
+      }
+      canvas {
+        width: min(90vw, 720px);
+        max-width: 720px;
+        aspect-ratio: 4 / 3;
         border-radius: 12px;
-        background: #ffffff;
-        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+        background: #000c07;
+        display: block;
       }
-      .message .label {
-        font-weight: 700;
-        margin-bottom: 6px;
-        color: #111827;
+      #hud {
+        margin-top: 16px;
+        display: grid;
+        gap: 6px;
+        color: #6cffc8;
+        font-size: clamp(0.8rem, 1.5vw, 1rem);
+        text-transform: uppercase;
+        letter-spacing: 0.1rem;
       }
-      .message.user {
-        border-left: 4px solid #2563eb;
+      #hud strong {
+        color: #9ef8ff;
       }
-      .message.assistant {
-        border-left: 4px solid #059669;
+      .instructions {
+        max-width: 640px;
+        font-size: 0.9rem;
+        color: #88ffd2;
+        background: rgba(0, 26, 20, 0.7);
+        border: 1px solid rgba(0, 255, 170, 0.2);
+        border-radius: 16px;
+        padding: 18px 22px;
+        line-height: 1.6;
+        text-align: left;
+        box-shadow: inset 0 0 12px rgba(0, 255, 170, 0.12);
       }
-      .message.error {
-        border-left: 4px solid #dc2626;
-        background: #fef2f2;
+      .instructions h2 {
+        margin-top: 0;
+        margin-bottom: 8px;
+        font-size: 1rem;
+        text-transform: uppercase;
+        letter-spacing: 0.2rem;
+        color: #0aff92;
+      }
+      .log {
+        margin-top: 10px;
+        font-size: 0.8rem;
+        color: #38f9ff;
+      }
+      .game-over-banner {
+        position: absolute;
+        inset: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(2, 10, 8, 0.88);
+        border: 1px solid rgba(0, 255, 170, 0.2);
+        border-radius: 12px;
+        color: #ff9ddf;
+        text-transform: uppercase;
+        letter-spacing: 0.28rem;
+        font-weight: bold;
+        font-size: clamp(1.2rem, 3vw, 2rem);
+        text-shadow: 0 0 16px rgba(255, 0, 120, 0.45);
+        backdrop-filter: blur(4px);
       }
       @media (max-width: 640px) {
-        header h1 {
-          font-size: 1.6rem;
+        body {
+          padding: 24px 12px 48px;
         }
-        .controls {
-          flex-direction: column;
-        }
-        .controls button {
-          width: 100%;
+        .instructions {
+          text-align: center;
         }
       }
     </style>
   </head>
   <body>
-    <div id="app">
-      <header>
-        <h1>Interactive Pixel Art Lab</h1>
-        <p>Enter a prompt and the LLM will run an English, five-step dialogue to craft a pixel-art template.</p>
-      </header>
-      <div class="controls">
-        <input id="prompt" type="text" placeholder="e.g. Silver-armored knight" />
-        <button id="generate">Generate</button>
-      </div>
-      <div id="status">Preparing a five-step English dialogue with the LLM.</div>
-      <div class="output">
-        <canvas id="canvas" width="24" height="24"></canvas>
-        <div id="log"></div>
+    <h1>$ Neon Survivors</h1>
+    <div class="badge-strip" aria-hidden="true">
+      <span class="badge">bash green</span>
+      <span class="badge">ascii vibes</span>
+      <span class="badge">auto battler prototype</span>
+    </div>
+    <div id="game-wrapper">
+      <canvas id="game" width="960" height="720" role="presentation"></canvas>
+      <div id="game-over" class="game-over-banner" hidden>Process Terminated</div>
+      <div id="hud" aria-live="polite">
+        <div>Time Online: <strong id="time">0.0s</strong></div>
+        <div>Threats Purged: <strong id="kills">0</strong></div>
+        <div>Core Integrity: <strong id="health">100%</strong></div>
       </div>
     </div>
+    <section class="instructions">
+      <h2>Operator Manual</h2>
+      <p><strong>Move</strong> with <kbd>WASD</kbd> or the arrow keys. Your rig auto-fires at the nearest hostile every 0.75 seconds. Maintain distance, kite the swarm, and survive as long as possible.</p>
+      <p>Every wave accelerates. Collisions drain core integrity. When the core reaches zero, the process halts. Tap <strong>Enter</strong> or click anywhere inside the viewport to reboot the simulation.</p>
+      <p class="log">Prototype build &mdash; visuals inspired by terminal-era bash screensavers.</p>
+    </section>
+    <script>
+      const canvas = document.getElementById('game');
+      const ctx = canvas.getContext('2d');
+      const hud = {
+        time: document.getElementById('time'),
+        kills: document.getElementById('kills'),
+        health: document.getElementById('health'),
+      };
+      const gameOverBanner = document.getElementById('game-over');
 
-    <script type="module">
-      const $ = (q) => document.querySelector(q);
-      const promptInput = $('#prompt');
-      const generateBtn = $('#generate');
-      const statusEl = $('#status');
-      const logEl = $('#log');
-      const canvas = $('#canvas');
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      ctx.imageSmoothingEnabled = false;
-
-      let hf = null;
-      let llm = null;
-      let llmPromise = null;
-      let promptLimit = navigator.gpu ? 900 : 600;
-      const SAFE_PROMPT_PATTERN = /[^\p{L}\p{N}\p{Zs}.,!?"'()\-]/gu;
-
-      const DEFAULT_GENERATION_OPTIONS = {
-        do_sample: false,
-        repetition_penalty: 1.1,
+      const state = {
+        running: false,
+        lastTime: performance.now(),
+        elapsed: 0,
+        startTime: 0,
+        killCount: 0,
+        spawnInterval: 1500,
+        lastSpawn: 0,
+        shootInterval: 750,
+        lastShot: 0,
+        player: {
+          x: canvas.width / 2,
+          y: canvas.height / 2,
+          radius: 18,
+          speed: 280,
+          health: 100,
+          maxHealth: 100,
+        },
+        enemies: [],
+        bullets: [],
       };
 
-      const MAX_GPU_PROMPT_CHARS = 900;
-      const MAX_CPU_PROMPT_CHARS = 600;
-      const MODEL_CHOICES = {
-        webgpu: [
-          {
-            id: 'HuggingFaceTB/SmolLM2-1.7B-Instruct',
-            label: 'SmolLM2 1.7B Instruct',
-            device: 'webgpu',
-            dtype: 'fp16',
-            context: '1.7B parameter instruction-tuned model (≈8K context, WebGPU recommended).',
-            promptLimit: MAX_GPU_PROMPT_CHARS,
-            fallbackNotice:
-              'Primary SmolLM2 WebGPU load failed. Trying the Phi-3 Mini quantized fallback next.',
-          },
-          {
-            id: 'onnx-community/Phi-3-mini-4k-instruct-q4f16',
-            label: 'Phi-3 Mini 4K Instruct (ONNX q4f16)',
-            device: 'webgpu',
-            dtype: 'auto',
-            context: 'Quantized Phi-3 Mini fallback (~4K context, mixed int4/float16).',
-            promptLimit: 750,
-          },
-        ],
-        wasm: [
-          {
-            id: 'HuggingFaceTB/SmolLM2-1.7B-Instruct',
-            label: 'SmolLM2 1.7B Instruct (WASM)',
-            device: 'wasm',
-            dtype: 'auto',
-            context: '1.7B parameter instruction-tuned model (CPU/WASM load is heavy; expect long init).',
-            promptLimit: MAX_CPU_PROMPT_CHARS,
-            fallbackNotice:
-              'SmolLM2 WASM initialization failed. Reverting to the Phi-3 Mini quantized fallback.',
-          },
-          {
-            id: 'onnx-community/Phi-3-mini-4k-instruct-q4f16',
-            label: 'Phi-3 Mini 4K Instruct (ONNX q4f16, WASM)',
-            device: 'wasm',
-            dtype: 'auto',
-            context: 'Quantized Phi-3 Mini fallback (~4K context, mixed int4/float16) for CPU execution.',
-            promptLimit: 500,
-          },
-        ],
-      };
+      const keys = new Set();
+      const friction = 0.92;
 
-      function estimateTokens(text) {
-        return Math.ceil((text?.length || 0) / 4);
+      const rand = (min, max) => Math.random() * (max - min) + min;
+      const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+      function resetGame() {
+        state.running = true;
+        state.lastTime = performance.now();
+        state.elapsed = 0;
+        state.startTime = performance.now();
+        state.killCount = 0;
+        state.spawnInterval = 1500;
+        state.lastSpawn = 0;
+        state.lastShot = 0;
+        state.player.x = canvas.width / 2;
+        state.player.y = canvas.height / 2;
+        state.player.health = state.player.maxHealth;
+        state.enemies = [];
+        state.bullets = [];
+        gameOverBanner.hidden = true;
+        requestAnimationFrame(loop);
       }
 
-      function setStatus(text) {
-        statusEl.textContent = text;
-      }
-
-      function sanitizePrompt(text) {
-        if (!text) return '';
-        return text
-          .normalize('NFC')
-          .replace(/[\n\r\t]+/g, ' ')
-          .replace(/[\\/][nrt]/gi, ' ')
-          .replace(SAFE_PROMPT_PATTERN, ' ')
-          .replace(/\s{2,}/g, ' ')
-          .trim();
-      }
-
-      function clearCanvas(size = 24) {
-        canvas.width = size;
-        canvas.height = size;
-        ctx.imageSmoothingEnabled = false;
-        ctx.clearRect(0, 0, size, size);
-      }
-
-      function appendMessage(role, title, content) {
-        const wrapper = document.createElement('div');
-        wrapper.className = `message ${role}`;
-        const label = document.createElement('div');
-        label.className = 'label';
-        label.textContent = title;
-        const body = document.createElement('pre');
-        body.textContent = content;
-        wrapper.append(label, body);
-        logEl.append(wrapper);
-        logEl.scrollTop = logEl.scrollHeight;
-      }
-
-      function appendError(title, content) {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'message error';
-        const label = document.createElement('div');
-        label.className = 'label';
-        label.textContent = title;
-        const body = document.createElement('pre');
-        body.textContent = content;
-        wrapper.append(label, body);
-        logEl.append(wrapper);
-        logEl.scrollTop = logEl.scrollHeight;
-      }
-
-      async function ensureLLM() {
-        if (llm) return;
-        if (llmPromise) {
-          await llmPromise;
-          return;
-        }
-
-        llmPromise = (async () => {
-          setStatus('Initializing Transformers.js runtime...');
-          if (!hf) {
-            hf = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.0');
-            hf.env.allowRemoteModels = true;
-          }
-
-          const hasWebGPU = Boolean(navigator.gpu);
-          const candidates = [...(MODEL_CHOICES[hasWebGPU ? 'webgpu' : 'wasm'] || [])];
-          const loadErrors = [];
-
-          for (const candidate of candidates) {
-            try {
-              setStatus(`Loading ${candidate.label}...`);
-              const pipeline = await hf.pipeline('text-generation', candidate.id, {
-                device: candidate.device,
-                dtype: candidate.dtype,
-                progress_callback: (progress) => {
-                  if (progress?.status && progress?.progress != null) {
-                    setStatus(`Loading ${candidate.label} ${Math.round(progress.progress * 100)}%`);
-                  }
-                },
-              });
-              llm = pipeline;
-              if (typeof candidate.promptLimit === 'number') {
-                promptLimit = candidate.promptLimit;
-              } else {
-                promptLimit = hasWebGPU ? MAX_GPU_PROMPT_CHARS : MAX_CPU_PROMPT_CHARS;
-              }
-              appendMessage(
-                'assistant',
-                'Model Loader',
-                `Using ${candidate.label} with ${candidate.context}. Keep prompts under ${promptLimit} characters for reliable runs.`,
-              );
-              setStatus(`Model ready. Starting Step 1 dialogue with ${candidate.label}.`);
-              return;
-            } catch (error) {
-              console.warn(`Failed to load ${candidate.id}`, error);
-              loadErrors.push(`${candidate.label}: ${error?.message || 'Unknown error'}`);
-              if (candidate.fallbackNotice) {
-                appendMessage('assistant', 'Model Loader', candidate.fallbackNotice);
-              }
-            }
-          }
-
-          throw new Error(`Unable to load a supported model. ${loadErrors.join(' | ')}`);
-        })();
-
-        try {
-          await llmPromise;
-        } finally {
-          llmPromise = null;
-        }
-      }
-
-      function extractJSON(text) {
-        const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-        const body = fenced ? fenced[1] : (text.match(/\{[\s\S]*\}/) || [])[0];
-        if (!body) throw new Error('Could not locate JSON in the response.');
-        return JSON.parse(body);
-      }
-
-      function normalizeList(value) {
-        if (Array.isArray(value)) {
-          return value
-            .map((item) => String(item || '').trim())
-            .filter((item) => item.length > 0);
-        }
-        if (typeof value === 'string') {
-          return value
-            .split(/[\n,]+/)
-            .map((part) => part.trim())
-            .filter((part) => part.length > 0);
-        }
-        return [];
-      }
-
-      const STEP1_FILLER_PATTERN =
-        /(Step\s*\d|Response|The following|List of|instructions?|The same|Theory|This is a list|PixelScholar|account|username|password|email)/i;
-
-      const COLOR_DESCRIPTIONS = {
-        amber: 'warm amber glow',
-        black: 'deep shadowed surfaces',
-        blue: 'cool blue accents',
-        bronze: 'bronze metallic sheen',
-        copper: 'copper-toned trim',
-        gold: 'gleaming gold edging',
-        gray: 'smoky gray shading',
-        green: 'emerald highlights',
-        indigo: 'indigo lighting bands',
-        iron: 'iron-gray armor plates',
-        ivory: 'ivory accents',
-        jade: 'jade-tinted glow',
-        navy: 'navy cloth panels',
-        orange: 'ember orange accents',
-        pink: 'rose pink lighting',
-        purple: 'royal purple cloth',
-        red: 'crimson highlights',
-        silver: 'polished silver armor',
-        steel: 'steel armor gleam',
-        teal: 'teal edge lights',
-        white: 'bright white trim',
-        yellow: 'golden yellow glow',
-      };
-
-      function summarizeStep1(data) {
-        const subject = String(data?.subject || '').trim();
-        const traits = normalizeList(data?.traits).slice(0, 5);
-        const symbolism = normalizeList(data?.symbolism).slice(0, 5);
-        const notesList = normalizeList(data?.notes);
-        const notes = notesList.join('; ');
-
-        if (!subject || subject.length > 80 || STEP1_FILLER_PATTERN.test(subject)) {
-          return { valid: false, reason: 'Subject line missing or filled with meta text.' };
-        }
-        if (traits.length < 3 || traits.some((item) => item.length > 80 || STEP1_FILLER_PATTERN.test(item))) {
-          return { valid: false, reason: 'Traits must list at least three concise physical features.' };
-        }
-        if (symbolism.length < 2 || symbolism.some((item) => item.length > 80 || STEP1_FILLER_PATTERN.test(item))) {
-          return { valid: false, reason: 'Symbolism entries must describe emblematic cues.' };
-        }
-        if (!notes || notes.length > 160 || STEP1_FILLER_PATTERN.test(notes)) {
-          return { valid: false, reason: 'Notes field must contain a short, practical art direction note.' };
-        }
-
-        return { valid: true, subject, traits, symbolism, notes };
-      }
-
-      function isLoopingText(text) {
-        if (!text) return false;
-        const normalized = String(text).toLowerCase();
-        const segments = ['the following', 'the same', 'list', 'response'];
-        let loopCount = 0;
-        for (const segment of segments) {
-          const occurrences = normalized.split(segment).length - 1;
-          if ((segment === 'the following' && occurrences >= 2) || occurrences >= 5) {
-            return true;
-          }
-          loopCount += occurrences;
-        }
-        if (loopCount >= 8) {
-          return true;
-        }
-        const words = normalized
-          .replace(/[^a-z0-9\s]/g, ' ')
-          .split(/\s+/)
-          .filter(Boolean);
-        if (!words.length) return false;
-        const threshold = Math.max(4, Math.floor(words.length * 0.25));
-        const counts = new Map();
-        for (const word of words) {
-          const nextCount = (counts.get(word) || 0) + 1;
-          if (nextCount >= threshold) {
-            return true;
-          }
-          counts.set(word, nextCount);
-        }
-        return false;
-      }
-
-      function buildStep1Prompt(userPrompt, { retry = false } = {}) {
-        const lines = [
-          'PixelScholar Step 1.',
-          `User prompt: "${userPrompt}"`,
-          'Goal: capture literal planning details for pixel art.',
-          'Return exactly one JSON object with this schema:',
-          '{"subject":"","traits":["","",""],"symbolism":["",""],"notes":""}',
-          'Rules:',
-          '- subject = short noun phrase under 60 characters.',
-          '- traits = three to five concrete physical traits.',
-          '- symbolism = two or three emblematic visual cues.',
-          '- notes = one practical art direction note.',
-          '- Use double quotes only, no trailing commas, no extra words before or after the JSON.',
-          '- Keep every value factual, visual, and under 80 characters.',
-        ];
-        if (retry) {
-          lines.push(
-            'Do not reference steps, responses, lists, or instructions.',
-            'If unsure, invent reasonable visual specifics that match the user prompt.',
-          );
+      function spawnEnemy(now) {
+        const edge = Math.floor(rand(0, 4));
+        let x, y;
+        if (edge === 0) {
+          x = rand(0, canvas.width);
+          y = -30;
+        } else if (edge === 1) {
+          x = canvas.width + 30;
+          y = rand(0, canvas.height);
+        } else if (edge === 2) {
+          x = rand(0, canvas.width);
+          y = canvas.height + 30;
         } else {
-          lines.push('Avoid repeating phrases or filler language. Fill every field with concrete visuals.');
+          x = -30;
+          y = rand(0, canvas.height);
         }
-        return lines.join('\n');
-      }
-
-      function parseStep1Response(raw) {
-        if (!raw || isLoopingText(raw)) {
-          return { valid: false, reason: 'Detected repeated filler text instead of structured JSON.' };
-        }
-        try {
-          const data = extractJSON(raw);
-          return summarizeStep1(data);
-        } catch (error) {
-          return { valid: false, reason: error?.message || 'Could not parse JSON from the response.' };
-        }
-      }
-
-      function cleanSingleLine(text, maxLen = 80) {
-        if (!text) return '';
-        let line = String(text)
-          .replace(/```[\s\S]*?```/g, ' ')
-          .split(/[\r\n]+/)[0]
-          .trim();
-        if (!line) return '';
-        if (line.includes(':')) {
-          const [prefix, ...rest] = line.split(':');
-          if (prefix.length <= 20 && rest.length) {
-            line = rest.join(':').trim();
-          }
-        }
-        line = line.replace(/^['"`*-\s]+/, '').replace(/['"`*-\s]+$/, '').trim();
-        line = line.replace(/\s{2,}/g, ' ');
-        if (!line || STEP1_FILLER_PATTERN.test(line)) {
-          return '';
-        }
-        if (line.length > maxLen) {
-          line = line.slice(0, maxLen).trim();
-        }
-        return line;
-      }
-
-      function cleanListEntries(value, maxItems = 5, maxLen = 80) {
-        const entries = normalizeList(value)
-          .map((item) => cleanSingleLine(item, maxLen))
-          .filter(Boolean);
-        const unique = [];
-        for (const entry of entries) {
-          if (!unique.includes(entry)) {
-            unique.push(entry);
-          }
-        }
-        return unique.slice(0, maxItems);
-      }
-
-      function extractLabeledValue(raw, label) {
-        if (!raw) return '';
-        const regex = new RegExp(`^\s*${label}\s*:\\s*(.+)$`, 'i');
-        const lines = String(raw)
-          .split(/[\r\n]+/)
-          .map((line) => line.trim())
-          .filter(Boolean);
-        for (const line of lines) {
-          const match = line.match(regex);
-          if (match && match[1]) {
-            return match[1].trim();
-          }
-        }
-        return '';
-      }
-
-      function extractLabeledList(raw, label, maxItems = 5, maxLen = 80) {
-        const value = extractLabeledValue(raw, label);
-        if (!value) return [];
-        return cleanListEntries(value, maxItems, maxLen);
-      }
-
-      function derivePhrasesFromPrompt(prompt) {
-        if (!prompt) return [];
-        const segments = String(prompt)
-          .replace(/[-_]+/g, ' ')
-          .split(/[,;/]| with | and | featuring | holding | wearing | atop | riding /gi)
-          .map((segment) => cleanSingleLine(segment, 60))
-          .filter(Boolean);
-        const unique = [];
-        for (const segment of segments) {
-          if (!unique.includes(segment)) {
-            unique.push(segment);
-          }
-        }
-        return unique;
-      }
-
-      function ensureMinimumList(list, min, fallbackCandidates) {
-        const result = [];
-        const seen = new Set();
-        for (const item of list || []) {
-          if (!item || seen.has(item)) continue;
-          seen.add(item);
-          result.push(item);
-        }
-        for (const candidate of fallbackCandidates || []) {
-          if (result.length >= min) break;
-          if (!candidate || seen.has(candidate)) continue;
-          seen.add(candidate);
-          result.push(candidate);
-        }
-        return result;
-      }
-
-      function buildHeuristicSummary(userPrompt) {
-        const derived = derivePhrasesFromPrompt(userPrompt);
-        const rawSubject = cleanSingleLine(derived[0] || userPrompt, 60) || 'Focal subject';
-        const subject = rawSubject;
-        const tokens = subject
-          .toLowerCase()
-          .replace(/[^a-z0-9\s-]/g, ' ')
-          .split(/[\s-]+/)
-          .filter(Boolean);
-        const baseNoun = tokens[tokens.length - 1] || 'subject';
-        const descriptorTokens = tokens.slice(0, -1);
-        const colorToken = descriptorTokens.find((token) => COLOR_DESCRIPTIONS[token]);
-
-        const traits = [];
-        if (colorToken && !traits.includes(COLOR_DESCRIPTIONS[colorToken])) {
-          traits.push(COLOR_DESCRIPTIONS[colorToken]);
-        }
-        if (descriptorTokens.length) {
-          const descriptorPhrase = `${descriptorTokens.join(' ')} details`;
-          if (!traits.includes(descriptorPhrase)) {
-            traits.push(descriptorPhrase);
-          }
-        }
-        const silhouetteTrait = `defined ${baseNoun} silhouette`;
-        if (!traits.includes(silhouetteTrait)) {
-          traits.push(silhouetteTrait);
-        }
-        const traitFallbacks = [
-          `bold ${baseNoun} posture`,
-          'crisp lighting edges',
-          `layered ${baseNoun} shading`,
-        ];
-        for (const fallback of traitFallbacks) {
-          if (traits.length >= 3) break;
-          if (!traits.includes(fallback)) {
-            traits.push(fallback);
-          }
-        }
-
-        const symbolism = [];
-        const emblem = `${baseNoun} emblem`;
-        if (!symbolism.includes(emblem)) {
-          symbolism.push(emblem);
-        }
-        if (colorToken) {
-          const cue = `${colorToken} radiance`;
-          if (!symbolism.includes(cue)) {
-            symbolism.push(cue);
-          }
-        }
-        if (!symbolism.includes('heroic aura')) {
-          symbolism.push('heroic aura');
-        }
-        const symbolismFallbacks = [`protective crest`, `${baseNoun} motif`];
-        for (const fallback of symbolismFallbacks) {
-          if (symbolism.length >= 3) break;
-          if (!symbolism.includes(fallback)) {
-            symbolism.push(fallback);
-          }
-        }
-
-        const highlight = colorToken ? `${colorToken} highlights` : 'bright edge lighting';
-        const noteTarget = baseNoun || 'subject';
-        const notes = `Block out the ${noteTarget} with ${highlight}.`;
-
-        return summarizeStep1({
-          subject,
-          traits: traits.slice(0, 5),
-          symbolism: symbolism.slice(0, 3),
-          notes,
-        });
-      }
-
-      async function runStep1Fallback(userPrompt) {
-        const subjectPrompt = [
-          'PixelScholar Step 1 fallback.',
-          `User prompt: "${userPrompt}"`,
-          'Reply with the main subject in this exact format: SUBJECT: <short noun phrase>.',
-          'Keep it under 60 characters and avoid commentary or meta language.',
-        ].join('\n');
-        const subjectRaw = await generateText(subjectPrompt, 80, 'Step 1 Fallback – Subject');
-        const subjectLine = cleanSingleLine(extractLabeledValue(subjectRaw, 'SUBJECT'), 60);
-
-        const traitsPromptBase = [
-          'PixelScholar Step 1 fallback.',
-          `Subject: ${subjectLine || userPrompt}`,
-          'Reply with exactly three concrete physical traits separated by commas.',
-          'Format: TRAITS: trait one, trait two, trait three.',
-          'Keep each trait under 60 characters and avoid numbering.',
-        ];
-        let traits = extractLabeledList(
-          await generateText(traitsPromptBase.join('\n'), 120, 'Step 1 Fallback – Traits'),
-          'TRAITS',
-          5,
-          60,
-        );
-        if (traits.length < 3) {
-          const traitsRetryPrompt = [
-            ...traitsPromptBase,
-            'Reminder: supply three different visual descriptors separated by commas with no extra text.',
-          ].join('\n');
-          traits = extractLabeledList(
-            await generateText(traitsRetryPrompt, 120, 'Step 1 Fallback – Traits Retry'),
-            'TRAITS',
-            5,
-            60,
-          );
-        }
-
-        const symbolismPromptBase = [
-          'PixelScholar Step 1 fallback.',
-          `Subject: ${subjectLine || userPrompt}`,
-          'Provide at least two symbolism cues separated by commas.',
-          'Format: SYMBOLISM: cue one, cue two[, cue three].',
-          'Keep each cue under 60 characters and tie them to the subject.',
-        ];
-        let symbolism = extractLabeledList(
-          await generateText(symbolismPromptBase.join('\n'), 120, 'Step 1 Fallback – Symbolism'),
-          'SYMBOLISM',
-          5,
-          60,
-        );
-        if (symbolism.length < 2) {
-          const symbolismRetryPrompt = [
-            ...symbolismPromptBase,
-            'Reminder: give emblematic visual cues only, no prose or meta commentary.',
-          ].join('\n');
-          symbolism = extractLabeledList(
-            await generateText(symbolismRetryPrompt, 120, 'Step 1 Fallback – Symbolism Retry'),
-            'SYMBOLISM',
-            5,
-            60,
-          );
-        }
-
-        const notesPromptBase = [
-          'PixelScholar Step 1 fallback.',
-          `Subject: ${subjectLine || userPrompt}`,
-          'Give one practical art direction note in this format: NOTE: <tip>.',
-          'Keep it under 100 characters and avoid filler words.',
-        ];
-        let notes = cleanSingleLine(
-          extractLabeledValue(
-            await generateText(notesPromptBase.join('\n'), 100, 'Step 1 Fallback – Note'),
-            'NOTE',
-          ),
-          100,
-        );
-        if (!notes) {
-          const notesRetryPrompt = [
-            ...notesPromptBase,
-            'Reminder: provide a direct rendering instruction with concrete guidance.',
-          ].join('\n');
-          notes = cleanSingleLine(
-            extractLabeledValue(
-              await generateText(notesRetryPrompt, 100, 'Step 1 Fallback – Note Retry'),
-              'NOTE',
-            ),
-            100,
-          );
-        }
-
-        const derived = derivePhrasesFromPrompt(userPrompt);
-        const subject = cleanSingleLine(subjectLine || derived[0] || userPrompt, 60) || 'Focal subject';
-        const traitsFilled = ensureMinimumList(
-          traits,
-          3,
-          derived.filter((item) => item !== subject),
-        ).slice(0, 5);
-        const defaultTraits = ['bold silhouette', 'clear focal pose', 'defined highlight edges'];
-        for (const fallback of defaultTraits) {
-          if (traitsFilled.length >= 3) break;
-          if (!traitsFilled.includes(fallback)) {
-            traitsFilled.push(fallback);
-          }
-        }
-
-        const symbolismFilled = ensureMinimumList(
-          symbolism,
-          2,
-          derived.filter((item) => item !== subject && !traitsFilled.includes(item)),
-        ).slice(0, 5);
-        const defaultSymbolism = ['heroic aura', 'protective emblem'];
-        for (const fallback of defaultSymbolism) {
-          if (symbolismFilled.length >= 2) break;
-          if (!symbolismFilled.includes(fallback)) {
-            symbolismFilled.push(fallback);
-          }
-        }
-
-        const fallbackNote =
-          notes || (subject ? `Use bold lighting to emphasize the ${subject}.` : 'Use bold lighting to emphasize the focal subject.');
-
-        const fallbackSummary = summarizeStep1({
-          subject,
-          traits: traitsFilled,
-          symbolism: symbolismFilled,
-          notes: fallbackNote,
-        });
-        if (fallbackSummary.valid) {
-          return fallbackSummary;
-        }
-
-        return buildHeuristicSummary(userPrompt);
-      }
-
-      function buildStep2Prompt(subject, traits, symbolism, notes, { retry = false } = {}) {
-        const base = [
-          'PixelScholar Step 2.',
-          `Subject: ${subject}`,
-          `Traits: ${traits.join(', ') || 'None'}`,
-          `Symbolism: ${symbolism.join(', ') || 'None'}`,
-          `Notes: ${notes || 'None'}`,
-          'Plan the main visuals to paint.',
-          'Return JSON only. Format: {"motifs":[""],"featurePriority":[""],"silhouette":""}.',
-          'Fill the template with real words and remove blank items.',
-          'motifs = three or four short noun phrases.',
-          'featurePriority = at least three concrete elements to emphasize.',
-          'Tie every motif directly to the subject or symbolism keywords so the art clearly conveys the theme.',
-          'If symbolism cues are present, ensure at least one motif turns each cue into a tangible prop, emblem, or environmental marker.',
-        ];
-        if (retry) {
-          base.push(
-            'Respond with JSON only. Example: {"motifs":["armor crest","cape fold","ground shadow"],"featurePriority":["glinting visor","plate highlights","weapon silhouette"],"silhouette":"heroic"}.',
-            'Do not include explanations or extra labels.',
-          );
-        }
-        return base.join('\n');
-      }
-
-      function validateStep2Plan(data) {
-        const motifs = cleanListEntries(data?.motifs, 4, 60);
-        const featurePriority = cleanListEntries(data?.featurePriority, 6, 60);
-        const silhouette = cleanSingleLine(data?.silhouette, 40);
-        if (motifs.length < 3) {
-          return { valid: false, reason: 'Motifs must include at least three short noun phrases.' };
-        }
-        if (featurePriority.length < 3) {
-          return { valid: false, reason: 'featurePriority needs three or more concrete elements.' };
-        }
-        if (!silhouette) {
-          return { valid: false, reason: 'Silhouette must be a short descriptive word or phrase.' };
-        }
-        return { valid: true, motifs, featurePriority, silhouette };
-      }
-
-      function buildStep2Fallback(subject, traits, symbolism) {
-        const subjectLine = cleanSingleLine(subject, 50) || 'focal figure';
-        const symbolismAnchors = (symbolism || [])
-          .map((item) => cleanSingleLine(item, 50))
-          .filter(Boolean)
-          .map((cue) => `${cue} motif`);
-        const symbolismClean = (symbolism || []).map((item) => cleanSingleLine(item, 50)).filter(Boolean);
-        const seeds = [
-          ...symbolismAnchors,
-          subjectLine,
-          ...traits.map((item) => cleanSingleLine(item, 50)),
-          ...symbolismClean,
-        ].filter(Boolean);
-        const motifFallbacks = [
-          `${subjectLine} stance`,
-          `${subjectLine} crest`,
-          'background banner',
-          'ground shadow',
-        ];
-        const motifs = ensureMinimumList(seeds, 3, motifFallbacks).slice(0, 4);
-        for (const cue of symbolismAnchors) {
-          if (motifs.length >= 4) break;
-          if (!motifs.some((motif) => motif.toLowerCase().includes(cue.toLowerCase()))) {
-            motifs.push(cleanSingleLine(cue, 50));
-          }
-        }
-        const featureFallbacks = [
-          'armor plate highlights',
-          'visor glow',
-          'weapon edge',
-          'cloak contour',
-        ];
-        const featurePriority = ensureMinimumList(
-          traits.map((item) => cleanSingleLine(item, 60)),
-          3,
-          [...symbolismClean.map((item) => cleanSingleLine(item, 60)), ...featureFallbacks],
-        ).slice(0, 5);
-        const silhouetteTokens = subjectLine.split(/\s+/).filter(Boolean);
-        const silhouette = cleanSingleLine(silhouetteTokens[silhouetteTokens.length - 1] || subjectLine, 20) || 'heroic';
-        return { valid: true, motifs, featurePriority, silhouette };
-      }
-
-      function buildStep3Prompt(subject, motifs, featurePriority, { retry = false } = {}) {
-        const lines = [
-          'PixelScholar Step 3.',
-          `Subject: ${subject}`,
-          `Motifs: ${motifs.join(', ') || 'None'}`,
-          `Priority features: ${featurePriority.join(', ') || 'None'}`,
-          'Build a #RRGGBB palette for the scene.',
-          'Return JSON only. Format: {"palette":["#RRGGBB"],"accent":"#RRGGBB","support":["#RRGGBB"],"notes":""}.',
-          'Fill the template with real colors and notes.',
-          'palette = three to five unique base colors (uppercase hex).',
-          'accent = one highlight color. support = one to three extra colors without duplicates.',
-        ];
-        if (retry) {
-          lines.push(
-            'Reply with JSON only and ensure every color is a valid #RRGGBB hex.',
-            'Do not add prose or field descriptions.',
-          );
-        }
-        return lines.join('\n');
-      }
-
-      function validateStep3Palette(data) {
-        const palette = uniqueColors([data?.palette]).slice(0, 5);
-        const accentList = uniqueColors([data?.accent]);
-        const support = uniqueColors([data?.support]).slice(0, 3);
-        const accent = accentList[0];
-        if (palette.length < 3) {
-          return { valid: false, reason: 'Palette must supply three to five base colors.' };
-        }
-        if (!accent) {
-          return { valid: false, reason: 'Accent color missing or invalid.' };
-        }
-        const notes = cleanSingleLine(data?.notes, 120);
-        return { valid: true, palette, accent, support, notes };
-      }
-
-      function buildStep3Fallback(subject) {
-        const subjectTokens = String(subject || '')
-          .toLowerCase()
-          .split(/[^a-z0-9]+/)
-          .filter(Boolean);
-        let palette = ['#1E293B', '#475569', '#CBD5F5'];
-        let accent = '#FACC15';
-        let support = ['#F97316'];
-        if (subjectTokens.includes('forest') || subjectTokens.includes('nature')) {
-          palette = ['#0F172A', '#14532D', '#22C55E'];
-          accent = '#FACC15';
-          support = ['#38BDF8'];
-        } else if (subjectTokens.includes('fire') || subjectTokens.includes('ember')) {
-          palette = ['#1F2937', '#7C2D12', '#EA580C'];
-          accent = '#FACC15';
-          support = ['#F97316'];
-        } else if (subjectTokens.includes('silver') || subjectTokens.includes('steel')) {
-          palette = ['#111827', '#334155', '#94A3B8', '#E2E8F0'];
-          accent = '#FACC15';
-          support = ['#F97316'];
-        }
-        return { valid: true, palette, accent, support, notes: 'Reserve the accent for the brightest armor glints.' };
-      }
-
-      function buildStep4Prompt(subject, motifs, featurePriority, colors, accent, { retry = false } = {}) {
-        const lines = [
-          'PixelScholar Step 4.',
-          `Subject: ${subject}`,
-          `Motifs: ${motifs.join(', ') || 'None'}`,
-          `Priority details: ${featurePriority.join(', ') || 'None'}`,
-          `Palette colors: ${colors.join(', ')}`,
-          `Accent color: ${accent}`,
-          'Explain the 24x24 layout.',
-          'Return JSON only. Format: {"composition":"","layering":[""],"keyClusters":[""],"focalPixels":[""]}.',
-          'Write short factual text, no blank items, no extra commentary.',
-          'layering = front to back order. keyClusters = grouped zones. focalPixels = short tips for the brightest spots.',
-        ];
-        if (retry) {
-          lines.push('Respond with JSON only and keep every value concise and concrete.');
-        }
-        return lines.join('\n');
-      }
-
-      function validateStep4Layout(data) {
-        const composition = cleanSingleLine(data?.composition, 160);
-        const layering = cleanListEntries(data?.layering, 5, 70);
-        const keyClusters = cleanListEntries(data?.keyClusters, 5, 70);
-        const focalPixels = cleanListEntries(data?.focalPixels, 5, 70);
-        if (!composition) {
-          return { valid: false, reason: 'Composition field is missing or non-descriptive.' };
-        }
-        if (!layering.length) {
-          return { valid: false, reason: 'Layering must include at least one ordered layer.' };
-        }
-        if (!keyClusters.length) {
-          return { valid: false, reason: 'Key clusters list is empty.' };
-        }
-        if (!focalPixels.length) {
-          return { valid: false, reason: 'Focal pixels need specific highlight notes.' };
-        }
-        return { valid: true, composition, layering, keyClusters, focalPixels };
-      }
-
-      function buildStep4Fallback(subject, motifs, featurePriority) {
-        const subjectLine = cleanSingleLine(subject, 80) || 'focal figure';
-        const motif = motifs[0] || subjectLine;
-        const composition = `Center the ${subjectLine} occupying middle columns with a dynamic guard pose.`;
-        const layering = ensureMinimumList(
-          [
-            'background gradient',
-            `${motif} mass`,
-            'foreground highlights',
-          ],
-          2,
-          featurePriority,
-        ).slice(0, 4);
-        const keyClusters = ensureMinimumList(
-          [
-            'visor and torso core',
-            'weapon edge zone',
-            'ground shadow base',
-          ],
-          3,
-          motifs,
-        ).slice(0, 4);
-        const focalPixels = ensureMinimumList(
-          [
-            'spark on visor center',
-            'edge along sword tip',
-            'crest highlight on shield',
-          ],
-          2,
-          featurePriority,
-        ).slice(0, 4);
-        return { valid: true, composition, layering, keyClusters, focalPixels };
-      }
-
-      function uniqueColors(values) {
-        const set = new Set();
-        for (const value of values) {
-          const hex = String(value || '').match(/#[0-9a-fA-F]{6}/g);
-          if (!hex) continue;
-          for (const h of hex) {
-            set.add(h.toUpperCase());
-          }
-        }
-        return Array.from(set);
-      }
-
-      function validateStep5Template(data, fallbackPalette) {
-        if (!data || typeof data !== 'object') {
-          return { valid: false, reason: 'Step 5 returned no JSON object.' };
-        }
-        const size = Number(data.size);
-        if (!Number.isFinite(size) || size !== 24) {
-          return { valid: false, reason: 'Template must declare size 24.' };
-        }
-        const palette =
-          (data.palette && typeof data.palette === 'object' && Object.keys(data.palette).length
-            ? data.palette
-            : fallbackPalette) || {};
-        const paletteKeys = Object.keys(palette);
-        if (!paletteKeys.length) {
-          return { valid: false, reason: 'Palette definition missing from Step 5 output.' };
-        }
-        const rows = Array.isArray(data.data) ? data.data : [];
-        if (rows.length !== size) {
-          return { valid: false, reason: 'Template rows must match the declared size.' };
-        }
-        const allowed = new Set(['0', ...paletteKeys]);
-        const normalized = [];
-        for (const row of rows) {
-          const line = String(row || '');
-          if (line.length !== size) {
-            return { valid: false, reason: 'Each template row must contain exactly 24 characters.' };
-          }
-          for (const ch of line) {
-            if (!allowed.has(ch)) {
-              return { valid: false, reason: `Unexpected palette key "${ch}" detected.` };
-            }
-          }
-          normalized.push(line);
-        }
-        return { valid: true, template: { size, palette, data: normalized } };
-      }
-
-      function buildProceduralTemplate({
-        subject,
-        traits,
-        symbolism,
-        motifs,
-        featurePriority,
-        paletteMap,
-        accentColor,
-        supportColors,
-        silhouette,
-        composition,
-        layering,
-        keyClusters,
-        focalPixels,
-      }) {
-        const size = 24;
-        const palette = { ...(paletteMap || {}) };
-        if (!Object.keys(palette).length) {
-          Object.assign(palette, {
-            1: '#111827',
-            2: '#334155',
-            3: '#94A3B8',
-            4: '#E2E8F0',
-            5: '#FACC15',
-            6: '#F97316',
-          });
-        }
-        const keys = Object.keys(palette)
-          .map((key) => String(key))
-          .sort((a, b) => Number(a) - Number(b))
-          .slice(0, 9);
-        const lookupColorKey = (color) => {
-          if (!color) return '';
-          const target = String(color).toUpperCase();
-          return keys.find((key) => String(palette[key]).toUpperCase() === target) || '';
+        const enemy = {
+          x,
+          y,
+          radius: rand(14, 20),
+          speed: rand(60, 120) + state.elapsed * 0.02,
+          health: 18,
         };
-        let accentKey = lookupColorKey(accentColor);
-        if (!accentKey) {
-          accentKey = keys[keys.length - 1];
-        }
-        const supportKeyFromPalette = (supportColors || [])
-          .map((color) => lookupColorKey(color))
-          .find((key) => key && key !== accentKey);
-        const darkKey = keys[0];
-        const midKey = keys[1] || darkKey;
-        const lightKey = keys[2] || accentKey;
-        const warmKey =
-          supportKeyFromPalette || keys.find((key) => ![darkKey, midKey, lightKey, accentKey].includes(key)) || midKey;
+        state.enemies.push(enemy);
+        state.lastSpawn = now;
+        const minInterval = 450;
+        state.spawnInterval = clamp(state.spawnInterval - state.elapsed * 0.02, minInterval, 1500);
+      }
 
-        const grid = Array.from({ length: size }, () => Array(size).fill('0'));
-        const center = Math.floor(size / 2);
-        const setPixel = (x, y, key) => {
-          if (x >= 0 && x < size && y >= 0 && y < size) {
-            grid[y][x] = key;
+      function shoot(now) {
+        if (!state.enemies.length) return;
+        const player = state.player;
+        let nearest = null;
+        let nearestDist = Infinity;
+        for (const enemy of state.enemies) {
+          const dx = enemy.x - player.x;
+          const dy = enemy.y - player.y;
+          const distSq = dx * dx + dy * dy;
+          if (distSq < nearestDist) {
+            nearestDist = distSq;
+            nearest = enemy;
           }
+        }
+        if (!nearest) return;
+        const dist = Math.sqrt(nearestDist) || 1;
+        const speed = 420;
+        const bullet = {
+          x: player.x,
+          y: player.y,
+          radius: 6,
+          vx: (nearest.x - player.x) / dist * speed,
+          vy: (nearest.y - player.y) / dist * speed,
+          life: 1200,
         };
-        const clearPixel = (x, y) => {
-          if (x >= 0 && x < size && y >= 0 && y < size) {
-            grid[y][x] = '0';
+        state.bullets.push(bullet);
+        state.lastShot = now;
+      }
+
+      function updatePlayer(dt) {
+        const player = state.player;
+        let vx = 0;
+        let vy = 0;
+        if (keys.has('ArrowUp') || keys.has('KeyW')) vy -= 1;
+        if (keys.has('ArrowDown') || keys.has('KeyS')) vy += 1;
+        if (keys.has('ArrowLeft') || keys.has('KeyA')) vx -= 1;
+        if (keys.has('ArrowRight') || keys.has('KeyD')) vx += 1;
+        if (vx !== 0 || vy !== 0) {
+          const len = Math.hypot(vx, vy) || 1;
+          vx /= len;
+          vy /= len;
+        }
+        player.x += vx * player.speed * dt;
+        player.y += vy * player.speed * dt;
+        player.x = clamp(player.x, player.radius, canvas.width - player.radius);
+        player.y = clamp(player.y, player.radius, canvas.height - player.radius);
+      }
+
+      function updateBullets(dt) {
+        for (let i = state.bullets.length - 1; i >= 0; i--) {
+          const bullet = state.bullets[i];
+          bullet.x += bullet.vx * dt;
+          bullet.y += bullet.vy * dt;
+          bullet.life -= dt * 1000;
+          if (
+            bullet.x < -20 ||
+            bullet.x > canvas.width + 20 ||
+            bullet.y < -20 ||
+            bullet.y > canvas.height + 20 ||
+            bullet.life <= 0
+          ) {
+            state.bullets.splice(i, 1);
           }
-        };
-        const fillSymmetricRow = (y, halfWidth, key) => {
-          const clampY = Math.max(0, Math.min(size - 1, y));
-          for (let dx = -halfWidth; dx <= halfWidth; dx += 1) {
-            setPixel(center + dx, clampY, key);
-          }
-        };
-        const fillRect = (x0, y0, x1, y1, key) => {
-          const minX = Math.max(0, Math.min(x0, x1));
-          const maxX = Math.min(size - 1, Math.max(x0, x1));
-          const minY = Math.max(0, Math.min(y0, y1));
-          const maxY = Math.min(size - 1, Math.max(y0, y1));
-          for (let y = minY; y <= maxY; y += 1) {
-            for (let x = minX; x <= maxX; x += 1) {
-              setPixel(x, y, key);
-            }
-          }
-        };
-        const drawCircle = (cx, cy, radius, key) => {
-          for (let y = -radius; y <= radius; y += 1) {
-            for (let x = -radius; x <= radius; x += 1) {
-              if (x * x + y * y <= radius * radius + 0.25) {
-                setPixel(cx + x, cy + y, key);
+        }
+      }
+
+      function updateEnemies(dt) {
+        const player = state.player;
+        for (let i = state.enemies.length - 1; i >= 0; i--) {
+          const enemy = state.enemies[i];
+          const dx = player.x - enemy.x;
+          const dy = player.y - enemy.y;
+          const dist = Math.hypot(dx, dy) || 1;
+          enemy.x += (dx / dist) * enemy.speed * dt;
+          enemy.y += (dy / dist) * enemy.speed * dt;
+        }
+      }
+
+      function checkCollisions() {
+        const player = state.player;
+        // bullets vs enemies
+        for (let i = state.enemies.length - 1; i >= 0; i--) {
+          const enemy = state.enemies[i];
+          for (let j = state.bullets.length - 1; j >= 0; j--) {
+            const bullet = state.bullets[j];
+            const dx = enemy.x - bullet.x;
+            const dy = enemy.y - bullet.y;
+            const r = enemy.radius + bullet.radius;
+            if (dx * dx + dy * dy <= r * r) {
+              state.bullets.splice(j, 1);
+              enemy.health -= 20;
+              if (enemy.health <= 0) {
+                state.enemies.splice(i, 1);
+                state.killCount += 1;
               }
+              break;
             }
           }
-        };
-
-        const detailSegments = [
-          subject,
-          ...(traits || []),
-          ...(symbolism || []),
-          ...(motifs || []),
-          ...(featurePriority || []),
-          silhouette,
-          composition,
-          ...(layering || []),
-          ...(keyClusters || []),
-          ...(focalPixels || []),
-        ];
-        const detailText = detailSegments
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase();
-        const tokenArray = detailText.match(/[a-z0-9]+/g) || [];
-        const tokenSet = new Set(tokenArray);
-        const hasToken = (...words) => words.some((word) => tokenSet.has(word));
-        const hasAny = (words) => words.some((word) => tokenSet.has(word));
-        const includesPhrase = (phrase) => detailText.includes(phrase);
-
-        const landscapeKeywords = [
-          'landscape',
-          'horizon',
-          'sky',
-          'mountain',
-          'valley',
-          'desert',
-          'forest',
-          'jungle',
-          'river',
-          'ocean',
-          'sea',
-          'coast',
-          'cityscape',
-          'village',
-          'temple',
-          'meadow',
-          'ruins',
-        ];
-        const emblemKeywords = [
-          'emblem',
-          'sigil',
-          'crest',
-          'insignia',
-          'banner',
-          'symbol',
-          'medallion',
-          'icon',
-          'seal',
-        ];
-        const creatureKeywords = [
-          'dragon',
-          'beast',
-          'serpent',
-          'phoenix',
-          'griffin',
-          'wolf',
-          'lion',
-          'animal',
-          'creature',
-          'monster',
-          'bird',
-          'wyvern',
-          'snake',
-          'fish',
-          'whale',
-          'octopus',
-          'spirit',
-        ];
-        const techKeywords = ['robot', 'android', 'cyber', 'mech', 'mecha', 'drone', 'cyborg', 'tech', 'synthetic'];
-
-        let theme = 'character';
-        if (hasAny(landscapeKeywords) || includesPhrase('panorama') || includesPhrase('wide shot')) {
-          theme = 'landscape';
-        } else if (hasAny(emblemKeywords)) {
-          theme = 'emblem';
-        } else if (hasAny(creatureKeywords)) {
-          theme = 'creature';
-        } else if (hasAny(techKeywords)) {
-          theme = 'tech';
         }
-        if (subject && /crest|sigil|logo|emblem/i.test(subject)) {
-          theme = 'emblem';
-        }
-        if (!hasAny(landscapeKeywords) && silhouette && /landscape|panorama|horizon/i.test(silhouette)) {
-          theme = 'landscape';
-        }
-
-        const drawHeroicFigure = ({ slender = false, tall = false, dynamicCape = false } = {}) => {
-          const widthAdjust = slender ? -1 : 0;
-          const topShift = tall ? -1 : 0;
-          const applyRow = (y, baseWidth, key) => {
-            const targetY = Math.max(0, Math.min(size - 1, y + topShift));
-            const width = Math.max(0, baseWidth + widthAdjust);
-            fillSymmetricRow(targetY, width, key);
-          };
-
-          for (let x = center - 6; x <= center + 6; x += 1) {
-            setPixel(x, size - 4, darkKey);
-          }
-          for (let x = center - 5; x <= center + 5; x += 1) {
-            setPixel(x, size - 3, darkKey);
-          }
-
-          for (let y = size - 7; y <= size - 4; y += 1) {
-            setPixel(center - 7, y, midKey);
-            setPixel(center + 7, y, midKey);
-          }
-          for (let y = size - 6; y <= size - 5; y += 1) {
-            setPixel(center - 8, y, midKey);
-            setPixel(center + 8, y, midKey);
-          }
-
-          applyRow(4, 1, midKey);
-          setPixel(center, Math.max(0, 4 + topShift), accentKey);
-          applyRow(5, 2, midKey);
-          setPixel(center - 1, Math.max(0, 5 + topShift), lightKey);
-          setPixel(center + 1, Math.max(0, 5 + topShift), lightKey);
-
-          applyRow(6, slender ? 2 : 3, midKey);
-          setPixel(center - 3 + (slender ? 1 : 0), Math.max(0, 6 + topShift), darkKey);
-          setPixel(center + 3 - (slender ? 1 : 0), Math.max(0, 6 + topShift), darkKey);
-          applyRow(7, slender ? 2 : 3, midKey);
-          applyRow(8, slender ? 2 : 3, midKey);
-          applyRow(9, slender ? 1 : 2, midKey);
-          applyRow(10, slender ? 1 : 2, midKey);
-          applyRow(11, slender ? 1 : 2, midKey);
-
-          for (let y = 6; y <= 11; y += 1) {
-            const targetY = Math.max(0, Math.min(size - 1, y + topShift));
-            setPixel(center, targetY, lightKey);
-          }
-          setPixel(center, Math.max(0, 7 + topShift), accentKey);
-
-          applyRow(12, 2, midKey);
-          for (let x = center - 2; x <= center + 2; x += 1) {
-            setPixel(x, Math.max(0, 12 + topShift), accentKey);
-          }
-          applyRow(13, 2, midKey);
-
-          for (let y = 14; y <= 17; y += 1) {
-            const targetY = Math.max(0, Math.min(size - 1, y + topShift));
-            setPixel(center - 1, targetY, midKey);
-            setPixel(center + 1, targetY, midKey);
-            setPixel(center - 2 + (slender ? 1 : 0), targetY, darkKey);
-            setPixel(center + 2 - (slender ? 1 : 0), targetY, darkKey);
-          }
-          for (let x = center - 2 + (slender ? 1 : 0); x <= center + 2 - (slender ? 1 : 0); x += 1) {
-            setPixel(x, Math.max(0, 18 + topShift), darkKey);
-          }
-          setPixel(center - 1, Math.max(0, 18 + topShift), accentKey);
-          setPixel(center + 1, Math.max(0, 18 + topShift), accentKey);
-
-          for (let y = 6; y <= 16; y += 1) {
-            const targetY = Math.max(0, Math.min(size - 1, y + topShift));
-            const offset = slender ? 4 : 5;
-            setPixel(center - offset, targetY, warmKey);
-            setPixel(center + offset, targetY, warmKey);
-            if (!slender && y % 2 === 0) {
-              setPixel(center - offset - 1, targetY, warmKey);
-              setPixel(center + offset + 1, targetY, warmKey);
-            }
-          }
-
-          if (dynamicCape) {
-            for (let y = 9; y <= 17; y += 1) {
-              setPixel(center - 7, Math.max(0, Math.min(size - 1, y + topShift)), warmKey);
-              if (y % 3 === 0) {
-                setPixel(center - 8, Math.max(0, Math.min(size - 1, y + topShift)), warmKey);
-              }
-            }
-          }
-
-          for (let y = 8; y <= 14; y += 1) {
-            const targetY = Math.max(0, Math.min(size - 1, y + topShift));
-            setPixel(center - 5 + (slender ? 1 : 0), targetY, warmKey);
-            if (y >= 9 && y <= 13 && !slender) {
-              setPixel(center - 6, targetY, warmKey);
-            }
-          }
-          setPixel(center - 5 + (slender ? 1 : 0), Math.max(0, 10 + topShift), lightKey);
-          setPixel(center - 6 + (slender ? 1 : 0), Math.max(0, 11 + topShift), accentKey);
-
-          for (let y = 5; y <= 16; y += 1) {
-            const targetY = Math.max(0, Math.min(size - 1, y + topShift));
-            setPixel(center + 4 - (slender ? 1 : 0), targetY, lightKey);
-          }
-          setPixel(center + 4 - (slender ? 1 : 0), Math.max(0, 4 + topShift), accentKey);
-          setPixel(center + 4 - (slender ? 1 : 0), Math.max(0, 17 + topShift), accentKey);
-          setPixel(center + 3 - (slender ? 1 : 0), Math.max(0, 10 + topShift), lightKey);
-
-          for (let y = 7; y <= 15; y += 1) {
-            const targetY = Math.max(0, Math.min(size - 1, y + topShift));
-            setPixel(center - 3 + (slender ? 1 : 0), targetY, darkKey);
-            setPixel(center + 3 - (slender ? 1 : 0), targetY, darkKey);
-          }
-
-          const heroDetailText = detailText;
-          if (heroDetailText.includes('visor')) {
-            setPixel(center, Math.max(0, 5 + topShift), accentKey);
-            setPixel(center - 1, Math.max(0, 5 + topShift), lightKey);
-            setPixel(center + 1, Math.max(0, 5 + topShift), lightKey);
-          }
-          if (heroDetailText.includes('shield')) {
-            setPixel(center - 6 + (slender ? 1 : 0), Math.max(0, 10 + topShift), accentKey);
-            setPixel(center - 5 + (slender ? 1 : 0), Math.max(0, 12 + topShift), lightKey);
-          }
-          if (heroDetailText.includes('sword') || heroDetailText.includes('blade')) {
-            setPixel(center + 4 - (slender ? 1 : 0), Math.max(0, 3 + topShift), lightKey);
-            setPixel(center + 4 - (slender ? 1 : 0), Math.max(0, 2 + topShift), accentKey);
-          }
-          if (heroDetailText.includes('staff') || heroDetailText.includes('wand')) {
-            for (let y = 3; y <= 17; y += 1) {
-              setPixel(center + 6, Math.max(0, Math.min(size - 1, y + topShift)), midKey);
-            }
-            setPixel(center + 6, Math.max(0, 2 + topShift), accentKey);
-          }
-          if (heroDetailText.includes('bow') || heroDetailText.includes('arrow')) {
-            for (let y = 7; y <= 16; y += 1) {
-              setPixel(center - 7, Math.max(0, Math.min(size - 1, y + topShift)), lightKey);
-            }
-            setPixel(center - 6, Math.max(0, 8 + topShift), accentKey);
-          }
-          if (heroDetailText.includes('wing')) {
-            for (let spread = 0; spread <= 5; spread += 1) {
-              const wingY = Math.max(0, Math.min(size - 1, 8 + topShift - Math.floor(spread / 2)));
-              setPixel(center - 8 + spread, wingY, lightKey);
-              setPixel(center + 8 - spread, wingY, lightKey);
-            }
-          }
-          if (heroDetailText.includes('halo') || heroDetailText.includes('aura')) {
-            drawCircle(center, Math.max(0, 3 + topShift), 2, lightKey);
-            setPixel(center, Math.max(0, 2 + topShift), accentKey);
-          }
-          if (slender) {
-            clearPixel(center - 5, Math.max(0, 15 + topShift));
-            clearPixel(center + 5, Math.max(0, 15 + topShift));
-          }
-        };
-
-        const drawTechFigure = () => {
-          drawHeroicFigure({ slender: hasToken('sleek', 'nimble', 'scout'), tall: hasToken('tall', 'towering') });
-          for (let y = 6; y <= 16; y += 2) {
-            setPixel(center - 2, y, accentKey);
-            setPixel(center + 2, y, accentKey);
-          }
-          for (let y = 5; y <= 12; y += 1) {
-            setPixel(center, y, lightKey);
-          }
-          for (let x = center - 4; x <= center + 4; x += 2) {
-            setPixel(x, 9, warmKey);
-          }
-          if (hasToken('jet', 'thruster', 'rocket')) {
-            for (let y = 18; y < size; y += 1) {
-              setPixel(center - 3, y, accentKey);
-              setPixel(center + 3, y, accentKey);
-            }
-          }
-        };
-
-        const drawCreature = () => {
-          const spineY = hasToken('flying', 'sky', 'bird', 'phoenix') ? 9 : 12;
-          for (let x = center - 7; x <= center + 7; x += 1) {
-            const offset = Math.sin(((x - center) / 6) * Math.PI) * (hasToken('serpent', 'snake') ? 2 : 1);
-            setPixel(x, Math.max(0, Math.min(size - 1, spineY + Math.round(offset))), midKey);
-            setPixel(x, Math.max(0, Math.min(size - 1, spineY + Math.round(offset) + 1)), darkKey);
-          }
-          for (let x = center - 6; x <= center + 6; x += 1) {
-            const wingHeight = hasToken('wing', 'phoenix', 'griffin', 'bird')
-              ? Math.max(2, 5 - Math.abs(x - center) / 2)
-              : Math.max(1, 4 - Math.abs(x - center) / 3);
-            for (let y = 0; y < wingHeight; y += 1) {
-              setPixel(x, Math.max(0, spineY - 3 - y), lightKey);
-              if (y === 0) {
-                setPixel(x, Math.max(0, spineY - 4), accentKey);
-              }
-            }
-          }
-          const headX = center + 7;
-          drawCircle(headX, spineY - 1, 2, lightKey);
-          setPixel(headX + 1, spineY - 2, accentKey);
-          setPixel(headX + 1, spineY, accentKey);
-          if (hasToken('fire', 'ember', 'flame')) {
-            for (let i = 0; i < 4; i += 1) {
-              setPixel(headX + 2 + i, spineY - 2 + (i % 2), warmKey);
-            }
-          }
-          if (hasToken('ice', 'frost', 'snow')) {
-            for (let i = 0; i < 4; i += 1) {
-              setPixel(center - 8 + i, spineY + 3, lightKey);
-            }
-          }
-          if (hasToken('tail', 'serpent', 'dragon')) {
-            for (let i = 0; i < 6; i += 1) {
-              setPixel(center - 8 - i, spineY + 1 + Math.floor(i / 2), darkKey);
-              if (i % 2 === 0) {
-                setPixel(center - 8 - i, spineY + Math.floor(i / 2), accentKey);
-              }
-            }
-          }
-        };
-
-        const drawLandscape = () => {
-          const horizon = includesPhrase('low angle') ? size - 8 : includesPhrase('overhead') ? 9 : 12;
-          for (let y = horizon; y < size; y += 1) {
-            const key = y === horizon ? midKey : y >= size - 3 ? darkKey : midKey;
-            for (let x = 0; x < size; x += 1) {
-              setPixel(x, y, key);
-            }
-          }
-          for (let y = 0; y < horizon; y += 1) {
-            const blend = y / Math.max(1, horizon - 1);
-            const key = blend < 0.4 ? lightKey : blend < 0.8 ? midKey : warmKey;
-            for (let x = 0; x < size; x += 1) {
-              if (grid[y][x] === '0') {
-                setPixel(x, y, key);
-              }
-            }
-          }
-          if (hasToken('sun', 'sunset', 'dawn')) {
-            drawCircle(center - 6, Math.max(3, horizon - 6), 3, accentKey);
-          } else if (hasToken('moon', 'night', 'stars')) {
-            drawCircle(center + 7, Math.max(2, horizon - 7), 2, lightKey);
-            for (let i = 0; i < 20; i += 1) {
-              const starX = (i * 5 + 3) % size;
-              const starY = Math.floor((i * 7) % Math.max(2, horizon - 2));
-              setPixel(starX, starY, accentKey);
-            }
-          }
-          if (hasToken('mountain', 'peak')) {
-            for (let x = 2; x < size - 2; x += 1) {
-              const dist = Math.abs(x - center);
-              const height = Math.max(0, 6 - Math.floor(dist / 2));
-              for (let y = 0; y < height; y += 1) {
-                const targetY = horizon - 1 - y;
-                setPixel(x, targetY, darkKey);
-                if (y === height - 1) {
-                  setPixel(x, targetY, lightKey);
-                }
-              }
-            }
-          }
-          if (hasToken('forest', 'trees', 'jungle')) {
-            for (let x = 0; x < size; x += 3) {
-              for (let y = horizon - 1; y < size - 1; y += 1) {
-                setPixel(x, y, darkKey);
-              }
-              setPixel(x, horizon - 2, warmKey);
-            }
-          }
-          if (hasToken('river', 'lake', 'water', 'sea', 'ocean')) {
-            const waterY = horizon + 2;
-            for (let x = 0; x < size; x += 1) {
-              setPixel(x, waterY, lightKey);
-              if (x % 3 === 0) {
-                setPixel(x, waterY + 1, accentKey);
-              }
-            }
-          }
-          if (hasToken('city', 'village', 'temple', 'castle', 'ruins')) {
-            for (let block = 0; block < 5; block += 1) {
-              const blockX = 2 + block * 4;
-              const blockHeight = 2 + (block % 3);
-              fillRect(blockX, horizon - blockHeight, blockX + 2, horizon - 1, darkKey);
-              setPixel(blockX + 1, horizon - blockHeight, accentKey);
-            }
-          }
-        };
-
-        const drawEmblem = () => {
-          drawCircle(center, 12, 8, midKey);
-          drawCircle(center, 12, 6, lightKey);
-          drawCircle(center, 12, 4, warmKey);
-          drawCircle(center, 12, 2, accentKey);
-          for (let angle = 0; angle < 360; angle += 45) {
-            const rad = (angle * Math.PI) / 180;
-            const x = center + Math.round(Math.cos(rad) * 8);
-            const y = 12 + Math.round(Math.sin(rad) * 8);
-            setPixel(x, y, darkKey);
-          }
-          if (hasToken('star')) {
-            for (let i = -2; i <= 2; i += 1) {
-              setPixel(center + i, 12, accentKey);
-              setPixel(center, 12 + i, accentKey);
-            }
-          } else if (hasToken('phoenix', 'dragon', 'lion', 'wolf')) {
-            for (let i = -3; i <= 3; i += 1) {
-              setPixel(center + i, 9 + Math.abs(i), darkKey);
-              if (Math.abs(i) === 3) {
-                setPixel(center + i, 9 + Math.abs(i) - 1, accentKey);
-              }
-            }
-          }
-          if (hasToken('banner', 'ribbon')) {
-            fillRect(center - 9, 5, center + 9, 7, warmKey);
-          }
-        };
-
-        if (theme === 'landscape') {
-          drawLandscape();
-        } else if (theme === 'emblem') {
-          drawEmblem();
-        } else if (theme === 'creature') {
-          drawCreature();
-        } else if (theme === 'tech') {
-          drawTechFigure();
-        } else {
-          drawHeroicFigure({
-            slender: hasToken('mage', 'wizard', 'witch', 'priest', 'archer', 'assassin', 'dancer'),
-            tall: hasToken('tall', 'towering', 'giant', 'guardian') || includesPhrase('vertical'),
-            dynamicCape: hasToken('cape', 'cloak', 'mantle', 'cloak'),
-          });
-        }
-
-        const data = grid.map((row) => row.join(''));
-        return { size, palette, data };
-      }
-
-
-      async function generateText(prompt, maxTokens, stepLabel, overrides = {}) {
-        appendMessage('user', `${stepLabel} – Request`, prompt);
-        console.info(
-          `[${stepLabel}] prompt length: ${prompt.length} chars (≈${estimateTokens(prompt)} tokens). max_new_tokens=${maxTokens}`,
-        );
-        const out = await llm(prompt, {
-          max_new_tokens: maxTokens,
-          return_full_text: false,
-          ...DEFAULT_GENERATION_OPTIONS,
-          ...overrides,
-        });
-        const raw = String(out?.[0]?.generated_text || '').trim();
-        appendMessage('assistant', `${stepLabel} – Response`, raw);
-        return raw;
-      }
-
-      function drawTemplate(template) {
-        const size = Math.max(4, Math.min(48, template?.size || 24));
-        clearCanvas(size);
-        const palette = template?.palette || {};
-        const data = Array.isArray(template?.data) ? template.data : [];
-        for (let y = 0; y < size; y += 1) {
-          const row = String(data[y] || '').padEnd(size, '0');
-          for (let x = 0; x < size; x += 1) {
-            const code = row[x];
-            if (code && code !== '0' && palette[code]) {
-              ctx.fillStyle = palette[code];
-              ctx.fillRect(x, y, 1, 1);
+        // enemies vs player
+        for (let i = state.enemies.length - 1; i >= 0; i--) {
+          const enemy = state.enemies[i];
+          const dx = enemy.x - player.x;
+          const dy = enemy.y - player.y;
+          const r = enemy.radius + player.radius;
+          if (dx * dx + dy * dy <= r * r) {
+            state.enemies.splice(i, 1);
+            player.health -= 10;
+            if (player.health <= 0) {
+              player.health = 0;
+              endGame();
             }
           }
         }
       }
 
-      async function runFiveStepDialogue(userPrompt) {
-        await ensureLLM();
-
-        const target = 24;
-        clearCanvas(target);
-        appendMessage('user', 'User Prompt', userPrompt);
-
-        setStatus('Step 1/5 – Analyzing the subject...');
-        const step1Prompt = buildStep1Prompt(userPrompt);
-        const step1Raw = await generateText(step1Prompt, 220, 'Step 1');
-        let summary = parseStep1Response(step1Raw);
-
-        if (!summary.valid) {
-          appendMessage(
-            'assistant',
-            'Step 1 – Validator',
-            `${summary.reason} Retrying with a reinforced JSON format.`,
-          );
-          setStatus('Step 1 retry – Requesting clearer details...');
-          const retryPrompt = buildStep1Prompt(userPrompt, { retry: true });
-          const step1RetryRaw = await generateText(retryPrompt, 200, 'Step 1 Retry');
-          summary = parseStep1Response(step1RetryRaw);
-
-          if (!summary.valid) {
-            appendMessage(
-              'assistant',
-              'Step 1 – Validator',
-              'Falling back to guided prompts to extract the subject, traits, symbolism, and notes.',
-            );
-            setStatus('Step 1 fallback – Guiding the model through each field...');
-            summary = await runStep1Fallback(userPrompt);
-          }
-        }
-
-        if (!summary?.valid) {
-          throw new Error(summary?.reason || 'Step 1 did not return usable planning data after fallback.');
-        }
-
-        const { subject, traits, symbolism, notes } = summary;
-
-        setStatus('Step 2/5 – Designing visual motifs...');
-        const step2Prompt = buildStep2Prompt(subject, traits, symbolism, notes);
-        const step2Raw = await generateText(step2Prompt, 220, 'Step 2');
-        let plan2;
-        try {
-          plan2 = validateStep2Plan(extractJSON(step2Raw));
-        } catch (error) {
-          plan2 = { valid: false, reason: error?.message || 'Could not parse JSON from Step 2.' };
-        }
-        if (!plan2.valid) {
-          appendMessage(
-            'assistant',
-            'Step 2 – Validator',
-            `${plan2.reason} Retrying with explicit JSON instructions.`,
-          );
-          const step2RetryRaw = await generateText(
-            buildStep2Prompt(subject, traits, symbolism, notes, { retry: true }),
-            200,
-            'Step 2 Retry',
-          );
-          try {
-            plan2 = validateStep2Plan(extractJSON(step2RetryRaw));
-          } catch (error) {
-            plan2 = { valid: false, reason: error?.message || 'Could not parse JSON from Step 2 retry.' };
-          }
-          if (!plan2.valid) {
-            appendMessage(
-              'assistant',
-              'Step 2 – Validator',
-              'Falling back to heuristic motif planning.',
-            );
-            plan2 = buildStep2Fallback(subject, traits, symbolism);
-          }
-        }
-        const { motifs, featurePriority, silhouette } = plan2;
-
-        setStatus('Step 3/5 – Building the color palette...');
-        const step3Prompt = buildStep3Prompt(subject, motifs, featurePriority);
-        const step3Raw = await generateText(step3Prompt, 220, 'Step 3');
-        let plan3;
-        try {
-          plan3 = validateStep3Palette(extractJSON(step3Raw));
-        } catch (error) {
-          plan3 = { valid: false, reason: error?.message || 'Could not parse JSON from Step 3.' };
-        }
-        if (!plan3.valid) {
-          appendMessage(
-            'assistant',
-            'Step 3 – Validator',
-            `${plan3.reason} Retrying with strict color instructions.`,
-          );
-          const step3RetryRaw = await generateText(
-            buildStep3Prompt(subject, motifs, featurePriority, { retry: true }),
-            200,
-            'Step 3 Retry',
-          );
-          try {
-            plan3 = validateStep3Palette(extractJSON(step3RetryRaw));
-          } catch (error) {
-            plan3 = { valid: false, reason: error?.message || 'Could not parse JSON from Step 3 retry.' };
-          }
-          if (!plan3.valid) {
-            appendMessage(
-              'assistant',
-              'Step 3 – Validator',
-              'Falling back to a predefined palette suited to the subject.',
-            );
-            plan3 = buildStep3Fallback(subject);
-          }
-        }
-        let { palette: colors, accent, support: supportColors } = plan3;
-        colors = colors.slice(0, 6);
-        if (!colors.includes(accent)) {
-          colors = [...colors, accent].slice(0, 6);
-        }
-        if (supportColors?.length) {
-          for (const color of supportColors) {
-            if (!colors.includes(color)) {
-              colors.push(color);
-            }
-          }
-        }
-        colors = Array.from(new Set(colors)).slice(0, 6);
-
-        setStatus('Step 4/5 – Mapping the composition...');
-        const step4Prompt = buildStep4Prompt(subject, motifs, featurePriority, colors, accent);
-        const step4Raw = await generateText(step4Prompt, 240, 'Step 4');
-        let plan4;
-        try {
-          plan4 = validateStep4Layout(extractJSON(step4Raw));
-        } catch (error) {
-          plan4 = { valid: false, reason: error?.message || 'Could not parse JSON from Step 4.' };
-        }
-        if (!plan4.valid) {
-          appendMessage(
-            'assistant',
-            'Step 4 – Validator',
-            `${plan4.reason} Retrying with stricter formatting guidance.`,
-          );
-          const step4RetryRaw = await generateText(
-            buildStep4Prompt(subject, motifs, featurePriority, colors, accent, { retry: true }),
-            220,
-            'Step 4 Retry',
-          );
-          try {
-            plan4 = validateStep4Layout(extractJSON(step4RetryRaw));
-          } catch (error) {
-            plan4 = { valid: false, reason: error?.message || 'Could not parse JSON from Step 4 retry.' };
-          }
-          if (!plan4.valid) {
-            appendMessage(
-              'assistant',
-              'Step 4 – Validator',
-              'Using heuristic layout guidance for the composition stage.',
-            );
-            plan4 = buildStep4Fallback(subject, motifs, featurePriority);
-          }
-        }
-        const { composition, layering, keyClusters, focalPixels } = plan4;
-
-        setStatus('Step 5/5 – Generating the pixel template...');
-        const paletteMap = {};
-        colors.forEach((color, index) => {
-          const key = String(index + 1);
-          paletteMap[key] = color;
-        });
-        const paletteDescription = JSON.stringify(paletteMap, null, 2);
-        const step5Prompt = [
-          'PixelScholar Step 5.',
-          'Use every note so far to build the template.',
-          `Subject: ${subject}`,
-          `Core traits: ${traits.join(', ') || 'None'}`,
-          `Motifs: ${motifs.join(', ') || 'None'}`,
-          `Silhouette guide: ${silhouette || 'Keep a clear subject silhouette'}`,
-          `Layout guide: ${composition || 'Place the subject near the center foreground'}`,
-          `Layer order: ${layering.join(' -> ') || 'Single layer'}`,
-          `Key clusters: ${keyClusters.join(', ') || 'Focus clusters around the subject'}`,
-          `Focal points: ${focalPixels.join(', ') || 'Emphasize the subject core'}`,
-          `Palette map (key:color): ${paletteDescription}`,
-          `Highlight color: ${accent}`,
-          'Return JSON only. Exact format: {"size":24,"palette":{...},"data":["........................"]}.',
-          'Grid is 24x24. Use "0" for background and palette keys 1-9 for painted pixels.',
-          'Aim for 25%–50% filled cells with connected shapes that show the symbolism.',
-          'Translate each motif into clear pixel clusters—props, icons, or patterns—that make the symbolism easy to recognize.',
-          'Use only the supplied palette keys, keep each string length 24, and do not add text outside the JSON.'
-        ].join('\n');
-        const step5Raw = await generateText(step5Prompt, 420, 'Step 5');
-        let templatePlan;
-        try {
-          const parsedStep5 = extractJSON(step5Raw);
-          templatePlan = validateStep5Template(parsedStep5, paletteMap);
-        } catch (error) {
-          templatePlan = { valid: false, reason: error?.message || 'Could not parse JSON from Step 5.' };
-        }
-        if (!templatePlan?.valid) {
-          appendMessage(
-            'assistant',
-            'Step 5 – Validator',
-            `${templatePlan?.reason || 'Template validation failed.'} Using a procedural fallback to complete the pixel grid.`,
-          );
-          const fallbackTemplate = buildProceduralTemplate({
-            subject,
-            traits,
-            symbolism,
-            motifs,
-            featurePriority,
-            paletteMap,
-            accentColor: accent,
-            supportColors,
-            silhouette,
-            composition,
-            layering,
-            keyClusters,
-            focalPixels,
-          });
-          templatePlan = { valid: true, template: fallbackTemplate, fallback: true };
-        }
-        const template = templatePlan.template;
-        drawTemplate(template);
-        appendMessage(
-          'assistant',
-          templatePlan.fallback ? 'Step 5 – Fallback Template' : 'Step 5 – Template',
-          JSON.stringify(template, null, 2),
-        );
-        appendMessage('assistant', 'Complete', 'The pixel-art template has been generated and rendered on the canvas.');
-        setStatus('All steps completed!');
+      function drawPlayer() {
+        const player = state.player;
+        ctx.save();
+        ctx.translate(player.x, player.y);
+        ctx.fillStyle = '#0aff92';
+        ctx.beginPath();
+        ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#38f9ff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
       }
 
-      async function handleGenerate() {
-        const text = promptInput.value;
-        const sanitizedPrompt = sanitizePrompt(text);
-        if (!sanitizedPrompt) {
-          appendError('Prompt Needed', 'Please enter a description using letters and numbers.');
-          setStatus('No usable prompt detected. Enter a short description and try again.');
-          return;
-        }
-        promptInput.value = sanitizedPrompt;
-        if (sanitizedPrompt.length > promptLimit) {
-          appendError(
-            'Prompt Too Long',
-            `The request has ${sanitizedPrompt.length} characters. Please split it into chunks under ${promptLimit} characters to avoid context overflows.`,
-          );
-          setStatus(`Prompt exceeds the ${promptLimit}-character safety budget. Shorten the request and retry.`);
-          return;
-        }
-        logEl.innerHTML = '';
-        generateBtn.disabled = true;
-        setStatus('Preparing the LLM for a five-step dialogue...');
-        try {
-          await runFiveStepDialogue(sanitizedPrompt);
-        } catch (error) {
-          console.error(error);
-          appendError('Error', error?.message || 'We could not generate pixel art. Please try again.');
-          setStatus('An error occurred. Adjust the prompt and try again.');
-        } finally {
-          generateBtn.disabled = false;
+      function drawBullets() {
+        ctx.fillStyle = '#aefbff';
+        for (const bullet of state.bullets) {
+          ctx.beginPath();
+          ctx.arc(bullet.x, bullet.y, bullet.radius, 0, Math.PI * 2);
+          ctx.fill();
         }
       }
 
-      generateBtn.addEventListener('click', handleGenerate);
-      promptInput.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          handleGenerate();
+      function drawEnemies() {
+        for (const enemy of state.enemies) {
+          const gradient = ctx.createRadialGradient(
+            enemy.x,
+            enemy.y,
+            enemy.radius * 0.2,
+            enemy.x,
+            enemy.y,
+            enemy.radius
+          );
+          gradient.addColorStop(0, 'rgba(255, 64, 120, 0.9)');
+          gradient.addColorStop(1, 'rgba(120, 12, 42, 0.6)');
+          ctx.fillStyle = gradient;
+          ctx.beginPath();
+          ctx.arc(enemy.x, enemy.y, enemy.radius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(255, 160, 200, 0.6)';
+          ctx.stroke();
+        }
+      }
+
+      function drawBackground(now) {
+        ctx.fillStyle = '#000c07';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        const scanlines = 24;
+        ctx.globalAlpha = 0.12;
+        ctx.fillStyle = '#0aff92';
+        for (let i = 0; i < scanlines; i++) {
+          const y = (i / scanlines) * canvas.height;
+          ctx.fillRect(0, y, canvas.width, 1);
+        }
+        ctx.globalAlpha = 1;
+        const flicker = 3 + Math.sin(now / 120) * 2;
+        ctx.strokeStyle = `rgba(0, 255, 170, ${0.08 + Math.sin(now / 320) * 0.04})`;
+        ctx.lineWidth = flicker;
+        ctx.strokeRect(8, 8, canvas.width - 16, canvas.height - 16);
+      }
+
+      function render(now) {
+        drawBackground(now);
+        drawBullets();
+        drawEnemies();
+        drawPlayer();
+      }
+
+      function updateHud() {
+        const elapsedSeconds = (state.elapsed / 1000).toFixed(1);
+        hud.time.textContent = `${elapsedSeconds}s`;
+        hud.kills.textContent = state.killCount;
+        const percent = Math.round((state.player.health / state.player.maxHealth) * 100);
+        hud.health.textContent = `${percent}%`;
+      }
+
+      function endGame() {
+        state.running = false;
+        gameOverBanner.hidden = false;
+        gameOverBanner.textContent = 'Process Terminated';
+      }
+
+      function loop(now) {
+        if (!state.running) return;
+        const delta = now - state.lastTime;
+        state.lastTime = now;
+        state.elapsed = now - state.startTime;
+        const dt = delta / 1000;
+
+        updatePlayer(dt);
+        updateBullets(dt);
+        updateEnemies(dt);
+        checkCollisions();
+        render(now);
+
+        if (now - state.lastSpawn > state.spawnInterval) {
+          spawnEnemy(now);
+        }
+        if (now - state.lastShot > state.shootInterval) {
+          shoot(now);
+        }
+
+        updateHud();
+
+        if (state.player.health > 0) {
+          requestAnimationFrame(loop);
+        }
+      }
+
+      document.addEventListener('keydown', (event) => {
+        keys.add(event.code);
+        if (!state.running && event.code === 'Enter') {
+          resetGame();
+        }
+      });
+      document.addEventListener('keyup', (event) => keys.delete(event.code));
+      canvas.addEventListener('pointerdown', () => {
+        if (!state.running) {
+          resetGame();
         }
       });
 
-      clearCanvas(24);
-      const hardwareMessage = navigator.gpu
-        ? 'WebGPU detected. Attempting HuggingFaceTB/SmolLM2-1.7B-Instruct first; falling back to the Phi-3 Mini quantized build if needed.'
-        : 'WebGPU unavailable. Trying SmolLM2 via WASM (this may take a while); if it fails, we automatically use the Phi-3 Mini quantized fallback.';
-      appendMessage(
-        'assistant',
-        'System',
-        `${hardwareMessage} Keep each request concise—ideally under ${promptLimit} characters—and split lengthy briefs into sequential runs.`,
-      );
-      appendMessage(
-        'assistant',
-        'Guide',
-        'Enter a prompt and press Generate to launch a five-step English dialogue that produces a pixel-art template. Track progress in the status bar and console token estimates.',
-      );
-      promptInput.focus();
+      resetGame();
     </script>
   </body>
 </html>
