@@ -121,6 +121,29 @@
         text-shadow: 0 0 16px rgba(255, 0, 120, 0.45);
         backdrop-filter: blur(4px);
       }
+      .game-over-banner[hidden] {
+        display: none !important;
+      }
+      #xp-bar {
+        position: relative;
+        height: 12px;
+        border: 1px solid rgba(0, 255, 170, 0.4);
+        border-radius: 999px;
+        overflow: hidden;
+        background: rgba(0, 26, 20, 0.7);
+      }
+      #xp-progress {
+        position: absolute;
+        inset: 0;
+        width: 0%;
+        background: linear-gradient(90deg, rgba(0, 255, 170, 0.7), rgba(0, 148, 255, 0.7));
+        box-shadow: 0 0 12px rgba(0, 255, 170, 0.4);
+      }
+      #buffs {
+        min-height: 1em;
+        color: #38f9ff;
+        letter-spacing: 0.08rem;
+      }
       @media (max-width: 640px) {
         body {
           padding: 24px 12px 48px;
@@ -145,13 +168,27 @@
         <div>Time Online: <strong id="time">0.0s</strong></div>
         <div>Threats Purged: <strong id="kills">0</strong></div>
         <div>Core Integrity: <strong id="health">100%</strong></div>
+        <div>Operator Level: <strong id="level">1</strong></div>
+        <div id="xp-bar" aria-hidden="true"><span id="xp-progress"></span></div>
+        <div>Active Buffs: <strong id="buffs">None</strong></div>
       </div>
     </div>
     <section class="instructions">
       <h2>Operator Manual</h2>
-      <p><strong>Move</strong> with <kbd>WASD</kbd> or the arrow keys. Your rig auto-fires at the nearest hostile every 0.75 seconds. Maintain distance, kite the swarm, and survive as long as possible.</p>
-      <p>Every wave accelerates. Collisions drain core integrity. When the core reaches zero, the process halts. Tap <strong>Enter</strong> or click anywhere inside the viewport to reboot the simulation.</p>
-      <p class="log">Prototype build &mdash; visuals inspired by terminal-era bash screensavers.</p>
+      <p>
+        <strong>Move</strong> with <kbd>WASD</kbd> or the arrow keys. Your rig auto-fires at the nearest hostile and vacuums
+        dropped <em>data shards</em> to gain experience. Spend time online to meet tougher daemons and harvest better
+        loot.
+      </p>
+      <p>
+        Defeated foes drop <em>energy cells</em> and <em>overclock cores</em>. Energy cells repair integrity; overclock cores
+        slash weapon cooldowns for a short burst. Collect shards to level up and automatically upgrade your rig.
+      </p>
+      <p>
+        Every wave accelerates. Collisions drain core integrity. When the core reaches zero, the process halts. Tap
+        <strong>Enter</strong> or click anywhere inside the viewport to reboot the simulation.
+      </p>
+      <p id="status" class="log" role="status">Prototype build &mdash; visuals inspired by terminal-era bash screensavers.</p>
     </section>
     <script>
       const canvas = document.getElementById('game');
@@ -160,8 +197,12 @@
         time: document.getElementById('time'),
         kills: document.getElementById('kills'),
         health: document.getElementById('health'),
+        level: document.getElementById('level'),
+        xpProgress: document.getElementById('xp-progress'),
+        buffs: document.getElementById('buffs'),
       };
       const gameOverBanner = document.getElementById('game-over');
+      const statusLine = document.getElementById('status');
 
       const state = {
         running: false,
@@ -171,8 +212,14 @@
         killCount: 0,
         spawnInterval: 1500,
         lastSpawn: 0,
-        shootInterval: 750,
+        baseShootInterval: 750,
+        minShootInterval: 320,
         lastShot: 0,
+        level: 1,
+        xp: 0,
+        xpToNext: 35,
+        xpGrowth: 1.45,
+        bulletDamage: 20,
         player: {
           x: canvas.width / 2,
           y: canvas.height / 2,
@@ -183,6 +230,12 @@
         },
         enemies: [],
         bullets: [],
+        items: [],
+        effects: {
+          overclock: 0,
+          shield: 0,
+        },
+        statusTimer: 0,
       };
 
       const keys = new Set();
@@ -190,6 +243,12 @@
 
       const rand = (min, max) => Math.random() * (max - min) + min;
       const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+      function setStatus(message, duration = 3200) {
+        if (!statusLine) return;
+        statusLine.textContent = message;
+        state.statusTimer = duration;
+      }
 
       function resetGame() {
         state.running = true;
@@ -200,42 +259,114 @@
         state.spawnInterval = 1500;
         state.lastSpawn = 0;
         state.lastShot = 0;
+        state.level = 1;
+        state.xp = 0;
+        state.xpToNext = 35;
+        state.bulletDamage = 20;
+        state.baseShootInterval = 750;
         state.player.x = canvas.width / 2;
         state.player.y = canvas.height / 2;
+        state.player.maxHealth = 100;
         state.player.health = state.player.maxHealth;
         state.enemies = [];
         state.bullets = [];
+        state.items = [];
+        state.effects.overclock = 0;
+        state.effects.shield = 0;
         gameOverBanner.hidden = true;
+        setStatus('Simulation booted. Collect shards and survive.');
         requestAnimationFrame(loop);
+      }
+
+      const enemyTypes = [
+        {
+          name: 'Glitch Bit',
+          minTime: 0,
+          color: ['rgba(255, 64, 120, 0.9)', 'rgba(120, 12, 42, 0.6)'],
+          radius: [14, 20],
+          speed: [70, 115],
+          health: 28,
+          damage: 10,
+          xp: 12,
+        },
+        {
+          name: 'Daemon Wisp',
+          minTime: 20000,
+          color: ['rgba(120, 200, 255, 0.9)', 'rgba(30, 70, 140, 0.6)'],
+          radius: [10, 14],
+          speed: [120, 180],
+          health: 16,
+          damage: 8,
+          xp: 14,
+          behavior: 'zig',
+        },
+        {
+          name: 'Kernel Bruiser',
+          minTime: 45000,
+          color: ['rgba(255, 180, 64, 0.9)', 'rgba(130, 60, 0, 0.6)'],
+          radius: [22, 30],
+          speed: [45, 70],
+          health: 65,
+          damage: 18,
+          xp: 28,
+        },
+        {
+          name: 'Torrent Brood',
+          minTime: 60000,
+          color: ['rgba(0, 255, 170, 0.9)', 'rgba(0, 130, 90, 0.6)'],
+          radius: [12, 16],
+          speed: [90, 140],
+          health: 22,
+          damage: 7,
+          xp: 10,
+          spawnCount: 3,
+        },
+      ];
+
+      function chooseEnemyType() {
+        const available = enemyTypes.filter((type) => state.elapsed >= type.minTime);
+        return available[Math.floor(rand(0, available.length))];
       }
 
       function spawnEnemy(now) {
         const edge = Math.floor(rand(0, 4));
-        let x, y;
-        if (edge === 0) {
-          x = rand(0, canvas.width);
-          y = -30;
-        } else if (edge === 1) {
-          x = canvas.width + 30;
-          y = rand(0, canvas.height);
-        } else if (edge === 2) {
-          x = rand(0, canvas.width);
-          y = canvas.height + 30;
-        } else {
-          x = -30;
-          y = rand(0, canvas.height);
+        const type = chooseEnemyType();
+        const spawnCount = type.spawnCount || 1;
+        const timeScalar = Math.min(state.elapsed / 1000, 240);
+        for (let i = 0; i < spawnCount; i++) {
+          let x;
+          let y;
+          if (edge === 0) {
+            x = rand(0, canvas.width);
+            y = -30 - i * 16;
+          } else if (edge === 1) {
+            x = canvas.width + 30 + i * 16;
+            y = rand(0, canvas.height);
+          } else if (edge === 2) {
+            x = rand(0, canvas.width);
+            y = canvas.height + 30 + i * 16;
+          } else {
+            x = -30 - i * 16;
+            y = rand(0, canvas.height);
+          }
+          const enemy = {
+            x,
+            y,
+            radius: rand(...type.radius),
+            speed: rand(...type.speed) + Math.min(timeScalar * 2.4, 160),
+            health: type.health,
+            maxHealth: type.health,
+            damage: type.damage,
+            xp: type.xp,
+            behavior: type.behavior || null,
+            color: type.color,
+            wobble: rand(0, Math.PI * 2),
+          };
+          state.enemies.push(enemy);
         }
-        const enemy = {
-          x,
-          y,
-          radius: rand(14, 20),
-          speed: rand(60, 120) + state.elapsed * 0.02,
-          health: 18,
-        };
-        state.enemies.push(enemy);
         state.lastSpawn = now;
-        const minInterval = 450;
-        state.spawnInterval = clamp(state.spawnInterval - state.elapsed * 0.02, minInterval, 1500);
+        const minInterval = 360;
+        state.spawnInterval = clamp(state.spawnInterval * 0.985, minInterval, 1500);
       }
 
       function shoot(now) {
@@ -254,7 +385,7 @@
         }
         if (!nearest) return;
         const dist = Math.sqrt(nearestDist) || 1;
-        const speed = 420;
+        const speed = 460;
         const bullet = {
           x: player.x,
           y: player.y,
@@ -311,8 +442,146 @@
           const dx = player.x - enemy.x;
           const dy = player.y - enemy.y;
           const dist = Math.hypot(dx, dy) || 1;
-          enemy.x += (dx / dist) * enemy.speed * dt;
-          enemy.y += (dy / dist) * enemy.speed * dt;
+          if (enemy.behavior === 'zig') {
+            enemy.wobble += dt * 6;
+            const wobbleX = Math.cos(enemy.wobble) * 60;
+            const wobbleY = Math.sin(enemy.wobble) * 40;
+            enemy.x += ((dx + wobbleX) / dist) * enemy.speed * dt;
+            enemy.y += ((dy + wobbleY) / dist) * enemy.speed * dt;
+          } else {
+            enemy.x += (dx / dist) * enemy.speed * dt;
+            enemy.y += (dy / dist) * enemy.speed * dt;
+          }
+        }
+      }
+
+      function dropLoot(enemy) {
+        const shards = Math.max(1, Math.round(enemy.xp / 10));
+        for (let i = 0; i < shards; i++) {
+          state.items.push({
+            type: 'xp',
+            value: enemy.xp / shards,
+            x: enemy.x + rand(-8, 8),
+            y: enemy.y + rand(-8, 8),
+            radius: 6,
+            vx: rand(-20, 20),
+            vy: rand(-20, 20),
+          });
+        }
+        if (Math.random() < 0.14) {
+          state.items.push({
+            type: 'heal',
+            value: 14,
+            x: enemy.x,
+            y: enemy.y,
+            radius: 9,
+            vx: rand(-15, 15),
+            vy: rand(-15, 15),
+          });
+        } else if (Math.random() < 0.1) {
+          state.items.push({
+            type: 'overclock',
+            value: 6500,
+            x: enemy.x,
+            y: enemy.y,
+            radius: 9,
+            vx: rand(-15, 15),
+            vy: rand(-15, 15),
+          });
+        } else if (Math.random() < 0.08) {
+          state.items.push({
+            type: 'shield',
+            value: 5000,
+            x: enemy.x,
+            y: enemy.y,
+            radius: 10,
+            vx: rand(-12, 12),
+            vy: rand(-12, 12),
+          });
+        }
+      }
+
+      function gainXp(amount) {
+        state.xp += amount;
+        while (state.xp >= state.xpToNext) {
+          state.xp -= state.xpToNext;
+          levelUp();
+        }
+      }
+
+      function applyEffect(name, duration) {
+        state.effects[name] = Math.max(state.effects[name], duration);
+        if (name === 'overclock') {
+          setStatus('Overclock core engaged!');
+        } else if (name === 'shield') {
+          setStatus('Phase shield deployed.');
+        }
+      }
+
+      function levelUp() {
+        state.level += 1;
+        state.xpToNext = Math.round(state.xpToNext * state.xpGrowth);
+        state.player.maxHealth += 6;
+        state.player.health = Math.min(state.player.maxHealth, state.player.health + 12);
+        state.bulletDamage += 4;
+        state.baseShootInterval = Math.max(state.minShootInterval + 60, state.baseShootInterval - 40);
+        setStatus(`Level ${state.level} achieved. Systems upgraded.`);
+      }
+
+      function collectItem(item) {
+        if (item.type === 'xp') {
+          gainXp(item.value);
+        } else if (item.type === 'heal') {
+          state.player.health = clamp(
+            state.player.health + item.value,
+            0,
+            state.player.maxHealth
+          );
+          setStatus('Energy cell absorbed. Integrity restored.');
+        } else if (item.type === 'overclock') {
+          applyEffect('overclock', item.value);
+        } else if (item.type === 'shield') {
+          applyEffect('shield', item.value);
+        }
+      }
+
+      function updateItems(dt) {
+        const player = state.player;
+        for (let i = state.items.length - 1; i >= 0; i--) {
+          const item = state.items[i];
+          item.x += item.vx * dt;
+          item.y += item.vy * dt;
+          item.vx *= friction;
+          item.vy *= friction;
+          const dx = player.x - item.x;
+          const dy = player.y - item.y;
+          const dist = Math.hypot(dx, dy) || 1;
+          if (dist < 140) {
+            item.x += (dx / dist) * 160 * dt;
+            item.y += (dy / dist) * 160 * dt;
+          }
+          if (dist <= player.radius + item.radius + 2) {
+            collectItem(item);
+            state.items.splice(i, 1);
+          }
+        }
+      }
+
+      function updateEffects(dt) {
+        let messageFired = false;
+        for (const key of Object.keys(state.effects)) {
+          if (state.effects[key] > 0) {
+            state.effects[key] -= dt * 1000;
+            if (state.effects[key] <= 0 && !messageFired) {
+              state.effects[key] = 0;
+              if (key === 'overclock') {
+                setStatus('Overclock core expired.');
+              } else if (key === 'shield') {
+                setStatus('Shield dissolved. Stay alert.');
+              }
+              messageFired = true;
+            }
+          }
         }
       }
 
@@ -328,10 +597,11 @@
             const r = enemy.radius + bullet.radius;
             if (dx * dx + dy * dy <= r * r) {
               state.bullets.splice(j, 1);
-              enemy.health -= 20;
+              enemy.health -= state.bulletDamage;
               if (enemy.health <= 0) {
                 state.enemies.splice(i, 1);
                 state.killCount += 1;
+                dropLoot(enemy);
               }
               break;
             }
@@ -345,7 +615,11 @@
           const r = enemy.radius + player.radius;
           if (dx * dx + dy * dy <= r * r) {
             state.enemies.splice(i, 1);
-            player.health -= 10;
+            let damage = enemy.damage;
+            if (state.effects.shield > 0) {
+              damage = Math.ceil(damage * 0.4);
+            }
+            player.health -= damage;
             if (player.health <= 0) {
               player.health = 0;
               endGame();
@@ -387,13 +661,36 @@
             enemy.y,
             enemy.radius
           );
-          gradient.addColorStop(0, 'rgba(255, 64, 120, 0.9)');
-          gradient.addColorStop(1, 'rgba(120, 12, 42, 0.6)');
+          const [inner, outer] = enemy.color;
+          gradient.addColorStop(0, inner);
+          gradient.addColorStop(1, outer);
           ctx.fillStyle = gradient;
           ctx.beginPath();
           ctx.arc(enemy.x, enemy.y, enemy.radius, 0, Math.PI * 2);
           ctx.fill();
           ctx.strokeStyle = 'rgba(255, 160, 200, 0.6)';
+          ctx.stroke();
+        }
+      }
+
+      function drawItems() {
+        for (const item of state.items) {
+          if (item.type === 'xp') {
+            const gradient = ctx.createRadialGradient(item.x, item.y, 2, item.x, item.y, item.radius);
+            gradient.addColorStop(0, 'rgba(0, 255, 170, 0.9)');
+            gradient.addColorStop(1, 'rgba(0, 150, 120, 0.5)');
+            ctx.fillStyle = gradient;
+          } else if (item.type === 'heal') {
+            ctx.fillStyle = 'rgba(255, 214, 102, 0.85)';
+          } else if (item.type === 'overclock') {
+            ctx.fillStyle = 'rgba(0, 200, 255, 0.85)';
+          } else if (item.type === 'shield') {
+            ctx.fillStyle = 'rgba(200, 120, 255, 0.8)';
+          }
+          ctx.beginPath();
+          ctx.arc(item.x, item.y, item.radius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(0, 255, 170, 0.25)';
           ctx.stroke();
         }
       }
@@ -419,6 +716,7 @@
         drawBackground(now);
         drawBullets();
         drawEnemies();
+        drawItems();
         drawPlayer();
       }
 
@@ -428,12 +726,43 @@
         hud.kills.textContent = state.killCount;
         const percent = Math.round((state.player.health / state.player.maxHealth) * 100);
         hud.health.textContent = `${percent}%`;
+        hud.level.textContent = state.level;
+        const xpPercent = clamp((state.xp / state.xpToNext) * 100, 0, 100);
+        hud.xpProgress.style.width = `${xpPercent}%`;
+        const active = [];
+        if (state.effects.overclock > 0) {
+          active.push('Overclock');
+        }
+        if (state.effects.shield > 0) {
+          active.push('Shielded');
+        }
+        hud.buffs.textContent = active.length ? active.join(' · ') : 'None';
       }
 
       function endGame() {
         state.running = false;
         gameOverBanner.hidden = false;
         gameOverBanner.textContent = 'Process Terminated';
+        setStatus('Core failure detected. Press Enter to reboot.');
+      }
+
+      function updateStatusTimer(delta) {
+        if (!statusLine) return;
+        if (state.statusTimer > 0) {
+          state.statusTimer -= delta;
+          if (state.statusTimer <= 0) {
+            state.statusTimer = 0;
+            statusLine.textContent = 'Monitoring...';
+          }
+        }
+      }
+
+      function getShootInterval() {
+        let interval = state.baseShootInterval;
+        if (state.effects.overclock > 0) {
+          interval *= 0.55;
+        }
+        return clamp(interval, state.minShootInterval, state.baseShootInterval);
       }
 
       function loop(now) {
@@ -446,16 +775,19 @@
         updatePlayer(dt);
         updateBullets(dt);
         updateEnemies(dt);
+        updateItems(dt);
+        updateEffects(dt);
         checkCollisions();
         render(now);
 
         if (now - state.lastSpawn > state.spawnInterval) {
           spawnEnemy(now);
         }
-        if (now - state.lastShot > state.shootInterval) {
+        if (now - state.lastShot > getShootInterval()) {
           shoot(now);
         }
 
+        updateStatusTimer(delta);
         updateHud();
 
         if (state.player.health > 0) {
