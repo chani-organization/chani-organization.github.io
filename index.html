@@ -19,8 +19,8 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: center;
-        gap: 20px;
+        justify-content: flex-start;
+        gap: 24px;
         padding: 32px 16px 64px;
         background: #000;
         color: #00ff90;
@@ -49,6 +49,13 @@
         letter-spacing: 0.08rem;
         text-transform: uppercase;
       }
+      .ui-shell {
+        display: grid;
+        grid-template-columns: minmax(180px, 220px) minmax(0, 720px) minmax(200px, 240px);
+        align-items: start;
+        gap: 18px;
+        width: min(95vw, 1100px);
+      }
       #game-wrapper {
         position: relative;
         padding: 18px;
@@ -66,17 +73,135 @@
         display: block;
         image-rendering: pixelated;
       }
-      #hud {
-        margin-top: 16px;
-        display: grid;
-        gap: 6px;
-        color: #00e089;
-        font-size: clamp(0.78rem, 1.5vw, 0.95rem);
-        text-transform: uppercase;
-        letter-spacing: 0.08rem;
+      .panel {
+        background: #00170e;
+        border: 1px solid #004225;
+        border-radius: 8px;
+        padding: 16px 18px;
+        color: #80ffce;
         text-align: left;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        box-shadow: 0 0 0 1px rgba(0, 66, 37, 0.4) inset;
+      }
+      .panel h2 {
+        margin: 0 0 6px;
+        font-size: 0.95rem;
+        text-transform: uppercase;
+        letter-spacing: 0.18rem;
+        color: #00d27f;
+      }
+      #hud {
+        gap: 10px;
       }
       #hud strong {
+        color: #b7fff0;
+      }
+      .stat-line {
+        font-size: 0.82rem;
+        letter-spacing: 0.08rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .stat-line strong {
+        color: #b7fff0;
+      }
+      .xp-track {
+        gap: 10px;
+      }
+      #xp-bar {
+        flex: 1;
+        position: relative;
+        height: 12px;
+        border: 1px solid #005f38;
+        border-radius: 999px;
+        overflow: hidden;
+        background: #001f13;
+        min-width: 140px;
+      }
+      #xp-progress {
+        position: absolute;
+        inset: 0;
+        width: 0%;
+        background: linear-gradient(90deg, rgba(0, 255, 170, 0.7), rgba(0, 128, 255, 0.6));
+        box-shadow: none;
+      }
+      #buffs {
+        min-height: 1em;
+        color: #38f9ff;
+        letter-spacing: 0.08rem;
+      }
+      #shop-panel {
+        gap: 12px;
+      }
+      .gold-display {
+        font-size: 0.88rem;
+        letter-spacing: 0.08rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }
+      .gold-display strong {
+        color: #ffe066;
+      }
+      #shop-items {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .shop-item {
+        border: 1px solid rgba(0, 193, 118, 0.6);
+        background: rgba(0, 32, 18, 0.8);
+        color: #8bffe5;
+        border-radius: 6px;
+        padding: 10px 12px;
+        text-align: left;
+        font-family: inherit;
+        font-size: 0.8rem;
+        letter-spacing: 0.06rem;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 6px 12px;
+        cursor: pointer;
+        transition: border-color 0.2s ease, transform 0.2s ease, background 0.2s ease;
+      }
+      .shop-item:hover:not(:disabled) {
+        border-color: #00ff90;
+        transform: translateY(-1px);
+      }
+      .shop-item:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+        border-color: rgba(0, 90, 52, 0.7);
+      }
+      .shop-item .label {
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+      .shop-item .desc {
+        grid-column: 1 / -1;
+        font-size: 0.75rem;
+        color: #5fffd3;
+      }
+      .shop-item .cost {
+        font-size: 0.8rem;
+        color: #ffe066;
+        align-self: start;
+      }
+      #footer-hud {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 0.86rem;
+        letter-spacing: 0.12rem;
+        color: #00e089;
+        text-transform: uppercase;
+      }
+      #footer-hud strong {
         color: #b7fff0;
       }
       .instructions {
@@ -122,25 +247,23 @@
       .game-over-banner[hidden] {
         display: none !important;
       }
-      #xp-bar {
-        position: relative;
-        height: 12px;
-        border: 1px solid #005f38;
-        border-radius: 999px;
-        overflow: hidden;
-        background: #001f13;
-      }
-      #xp-progress {
-        position: absolute;
-        inset: 0;
-        width: 0%;
-        background: linear-gradient(90deg, rgba(0, 255, 170, 0.7), rgba(0, 128, 255, 0.6));
-        box-shadow: none;
-      }
-      #buffs {
-        min-height: 1em;
-        color: #38f9ff;
-        letter-spacing: 0.08rem;
+      @media (max-width: 960px) {
+        .ui-shell {
+          grid-template-columns: minmax(0, 1fr);
+          width: min(95vw, 760px);
+        }
+        #game-wrapper {
+          order: 2;
+        }
+        #hud {
+          order: 1;
+        }
+        #shop-panel {
+          order: 3;
+        }
+        #footer-hud {
+          order: 4;
+        }
       }
       @media (max-width: 640px) {
         body {
@@ -148,6 +271,9 @@
         }
         .instructions {
           text-align: center;
+        }
+        canvas {
+          width: 100%;
         }
       }
     </style>
@@ -159,17 +285,34 @@
       <span class="badge">ascii output</span>
       <span class="badge">auto survivor proto</span>
     </div>
-    <div id="game-wrapper">
-      <canvas id="game" width="960" height="720" role="presentation"></canvas>
-      <div id="game-over" class="game-over-banner" hidden>Process Terminated</div>
-      <div id="hud" aria-live="polite">
-        <div>UPTIME &gt;&gt; <strong id="time">0.0s</strong></div>
-        <div>THREATS PURGED &gt;&gt; <strong id="kills">0</strong></div>
-        <div>CORE INTEGRITY &gt;&gt; <strong id="health">100%</strong></div>
-        <div>LEVEL &gt;&gt; <strong id="level">1</strong></div>
-        <div id="xp-bar" aria-hidden="true"><span id="xp-progress"></span></div>
-        <div>BUFFS &gt;&gt; <strong id="buffs">NONE</strong></div>
+    <div class="ui-shell">
+      <aside id="hud" class="panel" aria-live="polite">
+        <h2>Core Status</h2>
+        <div class="stat-line">Core Integrity &gt;&gt; <strong id="health">100%</strong></div>
+        <div class="stat-line">Threats Purged &gt;&gt; <strong id="kills">0</strong></div>
+        <div class="stat-line">Damage Output &gt;&gt; <strong id="damage">20</strong></div>
+        <div class="stat-line">Fire Rate &gt;&gt; <strong id="fire-rate">0.80/s</strong></div>
+        <div class="stat-line">Vector Speed &gt;&gt; <strong id="speed">280</strong></div>
+        <div class="stat-line">Buffs &gt;&gt; <strong id="buffs">NONE</strong></div>
+        <div class="stat-line xp-track">
+          XP Flow &gt;&gt;
+          <div id="xp-bar" aria-hidden="true"><span id="xp-progress"></span></div>
+        </div>
+      </aside>
+      <div id="game-wrapper">
+        <canvas id="game" width="960" height="720" role="presentation"></canvas>
+        <div id="game-over" class="game-over-banner" hidden>Process Terminated</div>
       </div>
+      <aside id="shop-panel" class="panel">
+        <h2>Upgrade Exchange</h2>
+        <div class="gold-display">Gold &gt;&gt; <strong id="gold">0</strong></div>
+        <div id="shop-items"></div>
+      </aside>
+    </div>
+    <div id="footer-hud">
+      Uptime &gt;&gt; <strong id="time">0.0s</strong>
+      <span aria-hidden="true">//</span>
+      Level &gt;&gt; <strong id="level">1</strong>
     </div>
     <section class="instructions">
       <h2>Operator Manual</h2>
@@ -179,9 +322,14 @@
         nastier ASCII sigils.
       </p>
       <p>
-        Terminated daemons scatter pickups: <em>energy cells</em> (<code>$</code>) restore integrity, <em>overclock cores</em>
-        (<code>*</code>) spike fire rate, and <em>phase shields</em> (<code>O</code>) blunt incoming damage. Each level-up
-        installs automated upgrades&mdash;just keep harvesting glyphs.
+        Purging daemons also routes system gold to your ledger. Spend it instantly in the <em>Upgrade Exchange</em> to the
+        right&mdash;button cards boost plating, weapon output, thruster speed, or trigger overclock and phase shield buffs on
+        demand.
+      </p>
+      <p>
+        Field drops still matter: <em>energy cells</em> (<code>$</code>) patch integrity, <em>overclock cores</em> (<code>*</code>)
+        accelerate fire rate, and <em>phase shields</em> (<code>O</code>) blunt incoming damage. Level-ups install automated
+        upgrades while shop buys stack as long as you can fund them.
       </p>
       <p>
         Waves accelerate relentlessly. Contact damage chews through integrity; zero integrity ends the session. Hit
@@ -200,9 +348,15 @@
         level: document.getElementById('level'),
         xpProgress: document.getElementById('xp-progress'),
         buffs: document.getElementById('buffs'),
+        damage: document.getElementById('damage'),
+        fireRate: document.getElementById('fire-rate'),
+        speed: document.getElementById('speed'),
+        gold: document.getElementById('gold'),
       };
       const gameOverBanner = document.getElementById('game-over');
       const statusLine = document.getElementById('status');
+      const shopItemsContainer = document.getElementById('shop-items');
+      const shopButtons = new Map();
 
       const CELL_SIZE = 12;
       const COLS = Math.floor(canvas.width / CELL_SIZE);
@@ -261,6 +415,7 @@
         xpToNext: 35,
         xpGrowth: 1.45,
         bulletDamage: 20,
+        gold: 0,
         player: {
           x: canvas.width / 2,
           y: canvas.height / 2,
@@ -278,6 +433,121 @@
         },
         statusTimer: 0,
       };
+
+      const shopInventory = [
+        {
+          id: 'reinforce',
+          label: 'Reinforce Plating',
+          cost: 45,
+          description: '+12 max integrity and immediate repair.',
+          apply() {
+            state.player.maxHealth += 12;
+            state.player.health = Math.min(state.player.maxHealth, state.player.health + 12);
+            return 'PLATING REINFORCED. INTEGRITY RESTORED.';
+          },
+        },
+        {
+          id: 'payload',
+          label: 'Payload Modulators',
+          cost: 60,
+          description: '+6 bullet damage for sustained purges.',
+          apply() {
+            state.bulletDamage += 6;
+            return 'PAYLOAD MODULATORS CALIBRATED.';
+          },
+        },
+        {
+          id: 'clock',
+          label: 'Clock Pulse Boost',
+          cost: 70,
+          description: '-60ms firing interval (clamped to system minimum).',
+          apply() {
+            state.baseShootInterval = Math.max(state.minShootInterval, state.baseShootInterval - 60);
+            return 'CLOCK PULSE BOOST APPLIED.';
+          },
+        },
+        {
+          id: 'thrusters',
+          label: 'Vector Thrusters',
+          cost: 55,
+          description: '+30 movement speed for tighter dodges.',
+          apply() {
+            state.player.speed += 30;
+            return 'VECTOR THRUSTERS ENGAGED.';
+          },
+        },
+        {
+          id: 'overclock',
+          label: 'Overclock Injector',
+          cost: 50,
+          description: 'Instantly trigger a 6s overclock burst.',
+          apply() {
+            applyEffect('overclock', 6000);
+            return null;
+          },
+        },
+        {
+          id: 'shield',
+          label: 'Phase Barrier Charge',
+          cost: 65,
+          description: 'Deploy a 5s phase shield on purchase.',
+          apply() {
+            applyEffect('shield', 5000);
+            return null;
+          },
+        },
+      ];
+
+      function setupShop() {
+        if (!shopItemsContainer) return;
+        shopItemsContainer.innerHTML = '';
+        for (const item of shopInventory) {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'shop-item';
+          button.innerHTML = `
+            <span class="label">${item.label}</span>
+            <span class="cost">${item.cost}G</span>
+            <span class="desc">${item.description}</span>
+          `;
+          button.addEventListener('click', () => handlePurchase(item));
+          shopItemsContainer.appendChild(button);
+          shopButtons.set(item.id, button);
+        }
+        refreshShopButtons();
+      }
+
+      function refreshShopButtons() {
+        for (const item of shopInventory) {
+          const button = shopButtons.get(item.id);
+          if (!button) continue;
+          button.disabled = !state.running || state.gold < item.cost;
+        }
+      }
+
+      function handlePurchase(item) {
+        if (!state.running) {
+          setStatus('SIMULATION OFFLINE. REBOOT TO TRANSACT.');
+          return;
+        }
+        if (state.gold < item.cost) {
+          setStatus('INSUFFICIENT GOLD. PURGE MORE THREATS.');
+          return;
+        }
+        state.gold -= item.cost;
+        const message = item.apply();
+        refreshShopButtons();
+        updateHud();
+        if (message) {
+          setStatus(message);
+        }
+      }
+
+      function awardGold(amount) {
+        if (amount <= 0) return;
+        state.gold += amount;
+        refreshShopButtons();
+      }
 
       const keys = new Set();
       const friction = 0.92;
@@ -305,9 +575,11 @@
         state.xpToNext = 35;
         state.bulletDamage = 20;
         state.baseShootInterval = 750;
+        state.gold = 0;
         state.player.x = canvas.width / 2;
         state.player.y = canvas.height / 2;
         state.player.maxHealth = 100;
+        state.player.speed = 280;
         state.player.health = state.player.maxHealth;
         state.enemies = [];
         state.bullets = [];
@@ -315,6 +587,7 @@
         state.effects.overclock = 0;
         state.effects.shield = 0;
         gameOverBanner.hidden = true;
+        refreshShopButtons();
         setStatus('SESSION ONLINE. Collect shards and survive.');
         requestAnimationFrame(loop);
       }
@@ -403,6 +676,7 @@
             maxHealth: type.health,
             damage: type.damage,
             xp: type.xp,
+            gold: Math.max(6, Math.round(type.xp * 0.6)),
             behavior: type.behavior || null,
             glyph: type.glyph,
             color: type.color,
@@ -570,7 +844,7 @@
         state.player.maxHealth += 6;
         state.player.health = Math.min(state.player.maxHealth, state.player.health + 12);
         state.bulletDamage += 4;
-        state.baseShootInterval = Math.max(state.minShootInterval + 60, state.baseShootInterval - 40);
+        state.baseShootInterval = Math.max(state.minShootInterval, state.baseShootInterval - 40);
         setStatus(`Level ${state.level} achieved. Systems upgraded.`);
       }
 
@@ -647,6 +921,7 @@
               if (enemy.health <= 0) {
                 state.enemies.splice(i, 1);
                 state.killCount += 1;
+                awardGold(enemy.gold || 0);
                 dropLoot(enemy);
               }
               break;
@@ -764,6 +1039,11 @@
         const percent = Math.round((state.player.health / state.player.maxHealth) * 100);
         hud.health.textContent = `${percent}%`;
         hud.level.textContent = state.level;
+        hud.damage.textContent = state.bulletDamage;
+        const fireRate = 1000 / Math.max(getShootInterval(), 1);
+        hud.fireRate.textContent = `${fireRate.toFixed(2)}/s`;
+        hud.speed.textContent = Math.round(state.player.speed);
+        hud.gold.textContent = state.gold;
         const xpPercent = clamp((state.xp / state.xpToNext) * 100, 0, 100);
         hud.xpProgress.style.width = `${xpPercent}%`;
         const active = [];
@@ -780,6 +1060,7 @@
         state.running = false;
         gameOverBanner.hidden = false;
         gameOverBanner.textContent = 'Process Terminated';
+        refreshShopButtons();
         setStatus('CORE FAILURE. PRESS ENTER TO REBOOT.');
       }
 
@@ -845,6 +1126,7 @@
         }
       });
 
+      setupShop();
       resetGame();
     </script>
   </body>
