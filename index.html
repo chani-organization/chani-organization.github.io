@@ -16,38 +16,85 @@
       body {
         margin: 0;
         min-height: 100vh;
+        padding: 32px 20px 64px;
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: flex-start;
-        gap: 24px;
-        padding: 32px 16px 64px;
-        background: #000;
-        color: #00ff90;
-        font-family: "Fira Code", "JetBrains Mono", Menlo, Consolas, monospace;
+        gap: 28px;
+        background: #020;
+        background-image: linear-gradient(rgba(0, 32, 0, 0.4) 1px, transparent 1px),
+          radial-gradient(circle at 20% 20%, rgba(0, 64, 0, 0.2), transparent 45%),
+          radial-gradient(circle at 80% 15%, rgba(0, 32, 0, 0.2), transparent 55%);
+        background-size: 100% 3px, 100% 100%, 100% 100%;
+        color: #33ff88;
+        font-family: "IBM Plex Mono", "Fira Code", "JetBrains Mono", Menlo, Consolas, monospace;
         text-align: center;
+        position: relative;
+        overflow-x: hidden;
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background: repeating-linear-gradient(
+          to bottom,
+          rgba(0, 0, 0, 0) 0px,
+          rgba(0, 0, 0, 0) 2px,
+          rgba(0, 0, 0, 0.08) 3px
+        );
+        mix-blend-mode: overlay;
+        opacity: 0.6;
       }
       h1 {
         margin: 0;
-        font-size: clamp(1.6rem, 2vw + 1rem, 2.5rem);
-        letter-spacing: 0.08rem;
-        text-transform: none;
+        font-size: clamp(1.6rem, 2vw + 1rem, 2.6rem);
+        letter-spacing: 0.1rem;
+        text-transform: uppercase;
+        text-shadow: 0 0 6px rgba(0, 255, 128, 0.6);
       }
       .badge-strip {
         display: flex;
         flex-wrap: wrap;
         justify-content: center;
         gap: 8px;
-        color: #00c176;
-        font-size: 0.85rem;
+        color: #1dd16b;
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08rem;
       }
       .badge {
-        border: 1px solid rgba(0, 193, 118, 0.6);
-        border-radius: 4px;
-        padding: 4px 10px;
-        background: rgba(0, 40, 24, 0.6);
-        letter-spacing: 0.08rem;
-        text-transform: uppercase;
+        border: 1px solid rgba(0, 200, 92, 0.6);
+        border-radius: 0;
+        padding: 4px 12px;
+        background: rgba(0, 40, 0, 0.65);
+        box-shadow: 0 0 0 1px rgba(0, 255, 140, 0.25);
+      }
+      .mainframe {
+        width: min(1100px, 100%);
+        padding: 18px 22px 30px;
+        position: relative;
+        border: 2px solid #16a34a;
+        color: inherit;
+        background: rgba(0, 20, 0, 0.82);
+        box-shadow: 0 0 40px rgba(0, 64, 16, 0.35);
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+      }
+      .mainframe::before,
+      .mainframe::after {
+        content: "";
+        position: absolute;
+        inset: 8px;
+        border: 1px dashed rgba(34, 197, 94, 0.3);
+        pointer-events: none;
+      }
+      .ui-shell {
+        display: grid;
+        grid-template-columns: minmax(210px, 240px) minmax(0, 1fr) minmax(210px, 260px);
+        gap: 18px;
+        align-items: stretch;
       }
       .ui-shell {
         display: grid;
@@ -58,20 +105,49 @@
       }
       #game-wrapper {
         position: relative;
-        padding: 18px;
-        border: 1px solid #007744;
-        border-radius: 8px;
-        background: #00150d;
-        box-shadow: 0 0 0 1px #002f1b inset;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        border: 1px solid rgba(34, 197, 94, 0.6);
+        box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.15) inset;
+        background: rgba(4, 40, 12, 0.75);
       }
       canvas {
-        width: min(90vw, 720px);
+        width: 100%;
         max-width: 720px;
         aspect-ratio: 4 / 3;
         background: #000;
-        border: 1px solid #004b2b;
+        border: 1px solid rgba(34, 197, 94, 0.4);
         display: block;
         image-rendering: pixelated;
+        box-shadow: 0 0 18px rgba(13, 148, 136, 0.25) inset;
+      }
+      .panel {
+        position: relative;
+        padding: 18px;
+        color: #7bffb9;
+        text-align: left;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        border: 1px solid rgba(34, 197, 94, 0.55);
+        background: rgba(5, 32, 8, 0.82);
+        box-shadow: 0 0 0 1px rgba(13, 148, 136, 0.18) inset;
+      }
+      .panel::before {
+        content: "";
+        position: absolute;
+        inset: 6px;
+        border: 1px dashed rgba(76, 255, 170, 0.35);
+        pointer-events: none;
+      }
+      .panel h2 {
+        margin: 0 0 8px;
+        font-size: 0.95rem;
+        text-transform: uppercase;
+        letter-spacing: 0.2rem;
+        color: #4cffaa;
       }
       .panel {
         background: #00170e;
@@ -96,18 +172,18 @@
         gap: 10px;
       }
       #hud strong {
-        color: #b7fff0;
+        color: #b9ffe5;
       }
       .stat-line {
         font-size: 0.82rem;
-        letter-spacing: 0.08rem;
+        letter-spacing: 0.1rem;
         display: flex;
         align-items: center;
         gap: 8px;
         flex-wrap: wrap;
       }
       .stat-line strong {
-        color: #b7fff0;
+        color: #cafff0;
       }
       .xp-track {
         gap: 10px;
@@ -116,37 +192,37 @@
         flex: 1;
         position: relative;
         height: 12px;
-        border: 1px solid #005f38;
-        border-radius: 999px;
+        border: 1px solid rgba(34, 197, 94, 0.6);
+        border-radius: 0;
         overflow: hidden;
-        background: #001f13;
+        background: rgba(2, 32, 12, 0.8);
         min-width: 140px;
+        box-shadow: 0 0 12px rgba(13, 148, 136, 0.25) inset;
       }
       #xp-progress {
         position: absolute;
         inset: 0;
         width: 0%;
-        background: linear-gradient(90deg, rgba(0, 255, 170, 0.7), rgba(0, 128, 255, 0.6));
-        box-shadow: none;
+        background: linear-gradient(90deg, rgba(76, 255, 170, 0.8), rgba(34, 197, 94, 0.6));
       }
       #buffs {
         min-height: 1em;
-        color: #38f9ff;
-        letter-spacing: 0.08rem;
+        color: #5dfdff;
+        letter-spacing: 0.1rem;
       }
       #shop-panel {
-        gap: 12px;
+        gap: 14px;
       }
       .gold-display {
         font-size: 0.88rem;
-        letter-spacing: 0.08rem;
+        letter-spacing: 0.1rem;
         display: flex;
         justify-content: space-between;
         align-items: center;
         gap: 12px;
       }
       .gold-display strong {
-        color: #ffe066;
+        color: #f5ff75;
       }
       #shop-items {
         display: flex;
@@ -154,29 +230,38 @@
         gap: 10px;
       }
       .shop-item {
-        border: 1px solid rgba(0, 193, 118, 0.6);
-        background: rgba(0, 32, 18, 0.8);
-        color: #8bffe5;
-        border-radius: 6px;
-        padding: 10px 12px;
+        border: 1px solid rgba(34, 197, 94, 0.6);
+        background: rgba(8, 44, 12, 0.82);
+        color: #92ffe0;
+        border-radius: 0;
+        padding: 10px 14px;
         text-align: left;
         font-family: inherit;
         font-size: 0.8rem;
-        letter-spacing: 0.06rem;
+        letter-spacing: 0.08rem;
         display: grid;
         grid-template-columns: 1fr auto;
         gap: 6px 12px;
         cursor: pointer;
-        transition: border-color 0.2s ease, transform 0.2s ease, background 0.2s ease;
+        transition: filter 0.15s ease, transform 0.15s ease;
+        position: relative;
+        overflow: hidden;
+      }
+      .shop-item::after {
+        content: "";
+        position: absolute;
+        inset: 4px;
+        border: 1px dashed rgba(76, 255, 170, 0.35);
+        pointer-events: none;
       }
       .shop-item:hover:not(:disabled) {
-        border-color: #00ff90;
+        filter: brightness(1.1);
         transform: translateY(-1px);
       }
       .shop-item:disabled {
         opacity: 0.45;
         cursor: not-allowed;
-        border-color: rgba(0, 90, 52, 0.7);
+        border-color: rgba(34, 197, 94, 0.25);
       }
       .shop-item .label {
         font-weight: 600;
@@ -189,32 +274,43 @@
       }
       .shop-item .cost {
         font-size: 0.8rem;
-        color: #ffe066;
+        color: #f5ff75;
         align-self: start;
       }
       #footer-hud {
         display: inline-flex;
         align-items: center;
         gap: 12px;
-        font-size: 0.86rem;
-        letter-spacing: 0.12rem;
-        color: #00e089;
+        font-size: 0.88rem;
+        letter-spacing: 0.14rem;
+        color: #4cffaa;
         text-transform: uppercase;
+        padding: 10px 18px;
+        border: 1px solid rgba(34, 197, 94, 0.6);
+        background: rgba(8, 44, 12, 0.75);
+        box-shadow: 0 0 0 1px rgba(76, 255, 170, 0.2) inset;
       }
       #footer-hud strong {
-        color: #b7fff0;
+        color: #cafff0;
       }
       .instructions {
-        max-width: 640px;
+        max-width: 680px;
         font-size: 0.92rem;
-        color: #80ffce;
-        background: #00170e;
-        border: 1px solid #004225;
-        border-radius: 8px;
-        padding: 16px 20px;
+        color: #9bffd8;
+        background: rgba(5, 32, 8, 0.82);
+        border: 1px solid rgba(34, 197, 94, 0.55);
+        padding: 20px 22px;
         line-height: 1.6;
         text-align: left;
-        box-shadow: none;
+        position: relative;
+        box-shadow: 0 0 0 1px rgba(13, 148, 136, 0.18) inset;
+      }
+      .instructions::before {
+        content: "";
+        position: absolute;
+        inset: 6px;
+        border: 1px dashed rgba(76, 255, 170, 0.35);
+        pointer-events: none;
       }
       .instructions h2 {
         margin-top: 0;
@@ -222,23 +318,22 @@
         font-size: 0.95rem;
         text-transform: uppercase;
         letter-spacing: 0.18rem;
-        color: #00d27f;
+        color: #4cffaa;
       }
       .log {
         margin-top: 10px;
         font-size: 0.82rem;
-        color: #4bffea;
+        color: #5dfdff;
       }
       .game-over-banner {
         position: absolute;
-        inset: 18px;
+        inset: 16px;
         display: flex;
         align-items: center;
         justify-content: center;
         background: rgba(0, 0, 0, 0.85);
-        border: 1px solid #00aa6a;
-        border-radius: 6px;
-        color: #ff81bf;
+        border: 1px solid rgba(76, 255, 170, 0.6);
+        color: #ff8ae2;
         text-transform: uppercase;
         letter-spacing: 0.22rem;
         font-weight: bold;
@@ -247,10 +342,12 @@
       .game-over-banner[hidden] {
         display: none !important;
       }
-      @media (max-width: 960px) {
+      @media (max-width: 1080px) {
+        .mainframe {
+          width: 100%;
+        }
         .ui-shell {
           grid-template-columns: minmax(0, 1fr);
-          width: min(95vw, 760px);
         }
         #game-wrapper {
           order: 2;
@@ -261,13 +358,13 @@
         #shop-panel {
           order: 3;
         }
-        #footer-hud {
-          order: 4;
-        }
       }
-      @media (max-width: 640px) {
+      @media (max-width: 680px) {
         body {
           padding: 24px 12px 48px;
+        }
+        .mainframe {
+          padding: 16px;
         }
         .instructions {
           text-align: center;
@@ -285,39 +382,40 @@
       <span class="badge">ascii output</span>
       <span class="badge">auto survivor proto</span>
     </div>
-    <div class="ui-shell">
-      <aside id="hud" class="panel" aria-live="polite">
-        <h2>Core Status</h2>
-        <div class="stat-line">Core Integrity &gt;&gt; <strong id="health">100%</strong></div>
-        <div class="stat-line">Threats Purged &gt;&gt; <strong id="kills">0</strong></div>
-        <div class="stat-line">Damage Output &gt;&gt; <strong id="damage">20</strong></div>
-        <div class="stat-line">Fire Rate &gt;&gt; <strong id="fire-rate">0.80/s</strong></div>
-        <div class="stat-line">Vector Speed &gt;&gt; <strong id="speed">280</strong></div>
-        <div class="stat-line">Buffs &gt;&gt; <strong id="buffs">NONE</strong></div>
-        <div class="stat-line xp-track">
-          XP Flow &gt;&gt;
-          <div id="xp-bar" aria-hidden="true"><span id="xp-progress"></span></div>
+    <div class="mainframe">
+      <div class="ui-shell">
+        <aside id="hud" class="panel" aria-live="polite">
+          <h2>Core Status</h2>
+          <div class="stat-line">Core Integrity &gt;&gt; <strong id="health">100%</strong></div>
+          <div class="stat-line">Threats Purged &gt;&gt; <strong id="kills">0</strong></div>
+          <div class="stat-line">Damage Output &gt;&gt; <strong id="damage">20</strong></div>
+          <div class="stat-line">Fire Rate &gt;&gt; <strong id="fire-rate">0.80/s</strong></div>
+          <div class="stat-line">Vector Speed &gt;&gt; <strong id="speed">280</strong></div>
+          <div class="stat-line">Buffs &gt;&gt; <strong id="buffs">NONE</strong></div>
+          <div class="stat-line xp-track">
+            XP Flow &gt;&gt;
+            <div id="xp-bar" aria-hidden="true"><span id="xp-progress"></span></div>
+          </div>
+        </aside>
+        <div id="game-wrapper">
+          <canvas id="game" width="960" height="720" role="presentation"></canvas>
+          <div id="game-over" class="game-over-banner" hidden>Process Terminated</div>
         </div>
-      </aside>
-      <div id="game-wrapper">
-        <canvas id="game" width="960" height="720" role="presentation"></canvas>
-        <div id="game-over" class="game-over-banner" hidden>Process Terminated</div>
+        <aside id="shop-panel" class="panel">
+          <h2>Upgrade Exchange</h2>
+          <div class="gold-display">Gold &gt;&gt; <strong id="gold">0</strong></div>
+          <div id="shop-items"></div>
+        </aside>
       </div>
-      <aside id="shop-panel" class="panel">
-        <h2>Upgrade Exchange</h2>
-        <div class="gold-display">Gold &gt;&gt; <strong id="gold">0</strong></div>
-        <div id="shop-items"></div>
-      </aside>
-    </div>
-    <div id="footer-hud">
-      Uptime &gt;&gt; <strong id="time">0.0s</strong>
-      <span aria-hidden="true">//</span>
-      Level &gt;&gt; <strong id="level">1</strong>
-    </div>
-    <section class="instructions">
-      <h2>Operator Manual</h2>
-      <p>
-        Steer the <code>@</code> marker with <kbd>WASD</kbd> or the arrow keys. Weapons auto-fire toward the closest hostile
+      <div id="footer-hud">
+        Uptime &gt;&gt; <strong id="time">0.0s</strong>
+        <span aria-hidden="true">//</span>
+        Level &gt;&gt; <strong id="level">1</strong>
+      </div>
+      <section class="instructions">
+        <h2>Operator Manual</h2>
+        <p>
+          Steer the <code>@</code> marker with <kbd>WASD</kbd> or the arrow keys. Weapons auto-fire toward the closest hostile
         glyph while loose <code>+</code> shards drift toward you for experience. Last longer to invite denser waves and
         nastier ASCII sigils.
       </p>
@@ -335,8 +433,9 @@
         Waves accelerate relentlessly. Contact damage chews through integrity; zero integrity ends the session. Hit
         <strong>Enter</strong> or click inside the viewport to reboot the simulation at any time.
       </p>
-      <p id="status" class="log" role="status">BOOT LOG &gt; ASCII renderer online.</p>
-    </section>
+        <p id="status" class="log" role="status">BOOT LOG &gt; ASCII renderer online.</p>
+      </section>
+    </div>
     <script>
       const canvas = document.getElementById('game');
       const ctx = canvas.getContext('2d');
