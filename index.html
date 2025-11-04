@@ -96,6 +96,13 @@
         gap: 18px;
         align-items: stretch;
       }
+      .ui-shell {
+        display: grid;
+        grid-template-columns: minmax(180px, 220px) minmax(0, 720px) minmax(200px, 240px);
+        align-items: start;
+        gap: 18px;
+        width: min(95vw, 1100px);
+      }
       #game-wrapper {
         position: relative;
         display: flex;
@@ -141,6 +148,25 @@
         text-transform: uppercase;
         letter-spacing: 0.2rem;
         color: #4cffaa;
+      }
+      .panel {
+        background: #00170e;
+        border: 1px solid #004225;
+        border-radius: 8px;
+        padding: 16px 18px;
+        color: #80ffce;
+        text-align: left;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        box-shadow: 0 0 0 1px rgba(0, 66, 37, 0.4) inset;
+      }
+      .panel h2 {
+        margin: 0 0 6px;
+        font-size: 0.95rem;
+        text-transform: uppercase;
+        letter-spacing: 0.18rem;
+        color: #00d27f;
       }
       #hud {
         gap: 10px;
@@ -342,6 +368,9 @@
         }
         .instructions {
           text-align: center;
+        }
+        canvas {
+          width: 100%;
         }
       }
     </style>
